@@ -1,0 +1,12 @@
+# Intermediate build artifacts
+obj/**/*.o
+obj/**/*.d
+obj/**/*.234r.expand
+obj/callgraph.dot
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# MRS local cache
+.mrs/
