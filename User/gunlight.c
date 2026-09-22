@@ -103,16 +103,16 @@ static void Gunlight_Apply_PWM(void)
             break;
 
         case GL_STATE_MODE3_DUAL:
-            // 模式 3: 主副同亮；低电节能模式适度降额
+            // 模式 3: 主灯 (3535 WLED) + 副灯 (650nm ~3mW 瞄准激光二极管) 同时亮
             if (s_bat_tier == BAT_TIER_LOW)
             {
-                BSP_PWM_SetDuty_PWM1(250);
-                BSP_PWM_SetDuty_PWM2(150);
+                BSP_PWM_SetDuty_PWM1(250);   // 主灯降额 25% 节能延长续航
+                BSP_PWM_SetDuty_PWM2(1000);  // 激光器功耗仅 ~44mW，保持 100% 满额常亮以确保战术瞄准光斑清晰
             }
             else
             {
-                BSP_PWM_SetDuty_PWM1(1000);
-                BSP_PWM_SetDuty_PWM2(500);
+                BSP_PWM_SetDuty_PWM1(1000);  // 主灯 100% 满功率照明 (500LX-1000LX)
+                BSP_PWM_SetDuty_PWM2(1000);  // 激光二极管 100% 满额常亮 (~3mW 红光准星)
             }
             break;
 

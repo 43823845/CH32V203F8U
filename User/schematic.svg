@@ -154,8 +154,8 @@
     <!-- Pin 5: PA3 / TIM2_CH4 PWM2 -->
     <line x1="70" y1="275" x2="130" y2="275" stroke="#EC4899" stroke-width="2"/>
     <text x="135" y="279" fill="#F8FAFC" font-size="8.5">5 PA3</text>
-    <rect x="10" y="265" width="60" height="20" rx="3" fill="#DB2777" />
-    <text x="40" y="279" fill="#FFF" font-size="9.5" font-weight="700" text-anchor="middle">PWM2 (副)</text>
+    <rect x="10" y="265" width="70" height="20" rx="3" fill="#DB2777" />
+    <text x="45" y="279" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">PWM2(红激光)</text>
 
     <!-- 下侧引脚 (Pin 5: PA4 / LED_RGB_DIN, Pin 6: PA5 / RESERVED) -->
     <!-- Pin 5: LED_RGB_DIN -->
@@ -309,11 +309,11 @@
     <text x="270" y="165" fill="#94A3B8" font-size="7.5">单引脚(PA4)传输24位GRB数据，金黄常亮指示进入ISP</text>
   </g>
 
-  <!-- ================= 模块 5: 通道 1 主聚光恒流驱动 (TI TPS92201) ================= -->
+  <!-- ================= 模块 5: 通道 1 主聚光恒流驱动 - 3535 WLED (500LX-1000LX) ================= -->
   <g transform="translate(30, 545)">
     <rect width="750" height="440" rx="8" fill="url(#cardGrad)" stroke="#F43F5E" stroke-width="1.5" />
     <rect width="750" height="32" rx="8" fill="#E11D48" fill-opacity="0.2" />
-    <text x="16" y="22" fill="#FB7185" font-size="13" font-weight="700">【模块 5】通道 1 同步降压恒流驱动 - 主聚光灯珠 (TI TPS92201 - 1.5A)</text>
+    <text x="16" y="22" fill="#FB7185" font-size="13" font-weight="700">【模块 5】通道 1 同步降压恒流驱动 - 3535 WLED 主聚光照明 (500LX ~ 1000LX)</text>
 
     <!-- TPS92201 IC 符号 (WSON-6 2x2mm) -->
     <rect x="230" y="65" width="180" height="170" rx="6" fill="#0F172A" stroke="#FB7185" stroke-width="2" />
@@ -352,30 +352,30 @@
     <rect x="510" y="162" width="60" height="26" rx="4" fill="#BE123C" stroke="#FB7185"/>
     <text x="540" y="178" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">L1 2.2µH</text>
 
-    <line x1="570" y1="175" x2="630" y2="175" stroke="#F43F5E" stroke-width="2"/>
-    <rect x="630" y="165" width="80" height="22" rx="3" fill="#E11D48" />
-    <text x="670" y="180" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">WLED1+ (正)</text>
+    <line x1="570" y1="175" x2="610" y2="175" stroke="#F43F5E" stroke-width="2"/>
+    <rect x="610" y="165" width="120" height="22" rx="3" fill="#E11D48" />
+    <text x="670" y="180" fill="#FFF" font-size="8.5" font-weight="700" text-anchor="middle">3535 WLED (500-1000LX)</text>
 
-    <!-- 检流采样 Rs1 -->
-    <rect x="510" y="205" width="70" height="24" rx="3" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
-    <text x="545" y="220" fill="#38BDF8" font-size="8" font-weight="700" text-anchor="middle">Rs1 0.133Ω</text>
-    <text x="545" y="242" fill="#94A3B8" font-size="7.5" text-anchor="middle">Imax = 0.2V / Rs = 1.50A</text>
+    <!-- 检流采样 Rs1 (0805 封装) -->
+    <rect x="495" y="205" width="105" height="24" rx="3" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="547" y="220" fill="#38BDF8" font-size="8" font-weight="700" text-anchor="middle">Rs1: 0.56Ω / 0.40Ω</text>
+    <text x="547" y="242" fill="#FBBF24" font-size="7.5" text-anchor="middle">封装: 0805 (1% 精度, P=71~100mW)</text>
 
     <!-- 说明栏 -->
     <rect x="30" y="260" width="690" height="155" rx="6" fill="#1E293B" stroke="#334155" />
-    <text x="50" y="285" fill="#F8FAFC" font-size="11" font-weight="700">★ 通道 1 硬件规格与调光模式 (TI TPS92201DRVR 同步降压)</text>
-    <text x="50" y="308" fill="#CBD5E1" font-size="9.5">• 额定工作峰值电流: 1.50A | 内置同步整流上下管 MOS，免除外挂肖特基二极管，效率 95%</text>
-    <text x="50" y="328" fill="#CBD5E1" font-size="9.5">• 精确 20.00kHz 硬件 PWM 驱动 (TIM2_CH3): 人耳超声频段，无任何音频啸叫与人眼频闪</text>
-    <text x="50" y="348" fill="#38BDF8" font-size="9.5">• 100% 占空比直通模式: 电池跌至 3.0V 接近 LED Vf 时全开直通，压降极小，杜绝跳水关灯</text>
-    <text x="50" y="368" fill="#F43F5E" font-size="9.5">• 关断静态功耗: EN 拉低时芯片关断电流仅 1µA，超长待机数月不亏电</text>
-    <text x="50" y="390" fill="#94A3B8" font-size="8.5">• 封装: WSON-6 (2×2mm)，PCB 面积缩减 52%，底部大面积散孔接地散热</text>
+    <text x="50" y="285" fill="#F8FAFC" font-size="11" font-weight="700">★ 通道 1 硬件限流电阻与 3535 WLED 选型设计 (V_FB = 200mV)</text>
+    <text x="50" y="308" fill="#CBD5E1" font-size="9.5">• 500LX 照度档位 (配镜中心照度): Rs1 = 0.56Ω (560mΩ) ±1% | I = 357mA | 功耗 71mW，推荐 0805 封装</text>
+    <text x="50" y="328" fill="#CBD5E1" font-size="9.5">• 1000LX 照度档位 (高亮聚光档位): Rs1 = 0.40Ω (400mΩ) ±1% | I = 500mA | 功耗 100mW，推荐 0805 封装</text>
+    <text x="50" y="348" fill="#38BDF8" font-size="9.5">• 精确 20.00kHz 硬件 PWM 调光: TIM2_CH3 驱动，软调光 100%/25%/5% 月光档，静音无频闪</text>
+    <text x="50" y="368" fill="#F43F5E" font-size="9.5">• 100% 占空比直通放电: 电池低压接近 LED Vf 时无损全开，关断待机电流仅 1µA</text>
+    <text x="50" y="390" fill="#94A3B8" font-size="8.5">• 灯珠推荐: 3535 封装大功率白光 LED (Cree XP-G3 / SST-20 / 国产 3535 陶瓷基板封装)</text>
   </g>
 
-  <!-- ================= 模块 6: 通道 2 副泛光恒流驱动 (TI TPS92201) ================= -->
+  <!-- ================= 模块 6: 通道 2 红光激光瞄准驱动 (650nm 3mW LD) ================= -->
   <g transform="translate(820, 545)">
     <rect width="750" height="440" rx="8" fill="url(#cardGrad)" stroke="#F43F5E" stroke-width="1.5" />
     <rect width="750" height="32" rx="8" fill="#E11D48" fill-opacity="0.2" />
-    <text x="16" y="22" fill="#FB7185" font-size="13" font-weight="700">【模块 6】通道 2 同步降压恒流驱动 - 副泛光灯珠 (TI TPS92201 - 1.5A)</text>
+    <text x="16" y="22" fill="#FB7185" font-size="13" font-weight="700">【模块 6】通道 2 同步降压恒流驱动 - 650nm 3mW 红光瞄准激光二极管 (LD)</text>
 
     <!-- TPS92201 IC 符号 -->
     <rect x="230" y="65" width="180" height="170" rx="6" fill="#0F172A" stroke="#FB7185" stroke-width="2" />
@@ -413,21 +413,22 @@
     <rect x="510" y="162" width="60" height="26" rx="4" fill="#BE123C" stroke="#FB7185"/>
     <text x="540" y="178" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">L2 2.2µH</text>
 
-    <line x1="570" y1="175" x2="630" y2="175" stroke="#F43F5E" stroke-width="2"/>
-    <rect x="630" y="165" width="80" height="22" rx="3" fill="#E11D48" />
-    <text x="670" y="180" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">WLED2+ (正)</text>
+    <line x1="570" y1="175" x2="605" y2="175" stroke="#F43F5E" stroke-width="2"/>
+    <rect x="605" y="165" width="130" height="22" rx="3" fill="#DC2626" />
+    <text x="670" y="180" fill="#FFF" font-size="8.5" font-weight="700" text-anchor="middle">650nm 3mW 红光激光(LD)</text>
 
-    <rect x="510" y="205" width="70" height="24" rx="3" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
-    <text x="545" y="220" fill="#38BDF8" font-size="8" font-weight="700" text-anchor="middle">Rs2 0.133Ω</text>
-    <text x="545" y="242" fill="#94A3B8" font-size="7.5" text-anchor="middle">Imax = 0.2V / Rs = 1.50A</text>
+    <!-- 检流采样 Rs2 (0603 封装) -->
+    <rect x="500" y="205" width="100" height="24" rx="3" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="550" y="220" fill="#38BDF8" font-size="8" font-weight="700" text-anchor="middle">Rs2: 10.0Ω ±1%</text>
+    <text x="550" y="242" fill="#FBBF24" font-size="7.5" text-anchor="middle">封装: 0603 (P = 4mW 极低功耗)</text>
 
     <!-- 说明栏 -->
     <rect x="30" y="260" width="690" height="155" rx="6" fill="#1E293B" stroke="#334155" />
-    <text x="50" y="285" fill="#F8FAFC" font-size="11" font-weight="700">★ 通道 2 硬件规格与配合调光模式 (副泛光近距离照明)</text>
-    <text x="50" y="308" fill="#CBD5E1" font-size="9.5">• 额定工作峰值电流: 1.50A | 与主聚光形成“远聚光 + 近泛光”战术组合配光</text>
-    <text x="50" y="328" fill="#CBD5E1" font-size="9.5">• 精确 20.00kHz 硬件 PWM (TIM2_CH4): 第 3 档点亮，双通 20kHz 完美静音</text>
-    <text x="50" y="348" fill="#38BDF8" font-size="9.5">• 芯片型号: TI TPS92201DRVR (WSON-6 2×2mm)，与通道 1 同型号，统一 BOM 便于备料</text>
-    <text x="50" y="368" fill="#F43F5E" font-size="9.5">• 100% 直通放电: 极低电量下微光保命档副灯关闭，集中保命电量供应主灯</text>
-    <text x="50" y="390" fill="#94A3B8" font-size="8.5">• 选型出处: 立创商城编号 C22427296，极小尺寸、高集成度、便携灯具首选</text>
+    <text x="50" y="285" fill="#F8FAFC" font-size="11" font-weight="700">★ 通道 2 硬件限流电阻与 650nm 3mW 激光管驱动设计 (V_FB = 200mV)</text>
+    <text x="50" y="308" fill="#CBD5E1" font-size="9.5">• 恒流限流电阻设定: Rs2 = 0.20V / 0.020A = 10.0Ω ±1% | 驱动电流精确恒定 20.0mA</text>
+    <text x="50" y="328" fill="#CBD5E1" font-size="9.5">• 激光管光功率: 恒流 20mA 直驱 650nm 红光 LD 产生标准 3mW 准星光束 (Class 3R 战术合规)</text>
+    <text x="50" y="348" fill="#38BDF8" font-size="9.5">• 电阻功耗与封装: P = I²·R = 4mW，选用 0603 贴片厚膜/薄膜电阻 (额定 1/10W，裕量 >25倍)</text>
+    <text x="50" y="368" fill="#F43F5E" font-size="9.5">• LD 专用保护设计: 输出并联 1µF 陶瓷电容(C8)滤除开关纹波，反向并联肖特基(BAT54WS)防反压击穿</text>
+    <text x="50" y="390" fill="#94A3B8" font-size="8.5">• 战术协同控制: 模式 3 下与主照明同亮，激光器 100% 恒定工作输出清晰红光指示瞄准准星</text>
   </g>
 </svg>

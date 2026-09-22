@@ -13,7 +13,7 @@ void BSP_PWM_Init(void)
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 
-    // 配置 PA2 (TIM2_CH3, 主灯 WLED1) 和 PA3 (TIM2_CH4, 副灯 WLED2) 为复用推挽输出
+    // 配置 PA2 (TIM2_CH3, 主灯 3535 WLED) 和 PA3 (TIM2_CH4, 红光激光二极管 650nm) 为复用推挽输出
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_3;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -67,7 +67,7 @@ void BSP_PWM_Init(void)
 }
 
 /**
- * @brief 设置主灯 WLED1 (PA2 / TIM2_CH3) PWM 占空比
+ * @brief 设置主灯 3535 WLED (PA2 / TIM2_CH3) PWM 占空比
  * @param duty: 0 ~ 1000 (对应 0.0% ~ 100.0%)
  */
 void BSP_PWM_SetDuty_PWM1(uint16_t duty)
@@ -78,7 +78,7 @@ void BSP_PWM_SetDuty_PWM1(uint16_t duty)
 }
 
 /**
- * @brief 设置副灯 WLED2 (PA3 / TIM2_CH4) PWM 占空比
+ * @brief 设置红光瞄准激光二极管 650nm ~3mW (PA3 / TIM2_CH4) PWM 占空比
  * @param duty: 0 ~ 1000 (对应 0.0% ~ 100.0%)
  */
 void BSP_PWM_SetDuty_PWM2(uint16_t duty)
