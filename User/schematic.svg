@@ -309,137 +309,125 @@
     <text x="270" y="165" fill="#94A3B8" font-size="7.5">单引脚(PA4)传输24位GRB数据，金黄常亮指示进入ISP</text>
   </g>
 
-  <!-- ================= 模块 5: 通道 1 主聚光恒流驱动 (OC5011) ================= -->
+  <!-- ================= 模块 5: 通道 1 主聚光恒流驱动 (TI TPS92201) ================= -->
   <g transform="translate(30, 545)">
     <rect width="750" height="440" rx="8" fill="url(#cardGrad)" stroke="#F43F5E" stroke-width="1.5" />
     <rect width="750" height="32" rx="8" fill="#E11D48" fill-opacity="0.2" />
-    <text x="16" y="22" fill="#FB7185" font-size="13" font-weight="700">【模块 5】通道 1 降压恒流驱动 - 主聚光灯珠 (SPOTLIGHT DRIVER - 1.5A)</text>
+    <text x="16" y="22" fill="#FB7185" font-size="13" font-weight="700">【模块 5】通道 1 同步降压恒流驱动 - 主聚光灯珠 (TI TPS92201 - 1.5A)</text>
 
-    <!-- OC5011 IC 符号 -->
+    <!-- TPS92201 IC 符号 (WSON-6 2x2mm) -->
     <rect x="230" y="65" width="180" height="170" rx="6" fill="#0F172A" stroke="#FB7185" stroke-width="2" />
-    <text x="320" y="95" fill="#FB7185" font-size="14" font-weight="800" text-anchor="middle">U3 OC5011</text>
-    <text x="320" y="112" fill="#94A3B8" font-size="9" text-anchor="middle">SOT-23-6 降压型高精度恒流 IC</text>
+    <text x="320" y="93" fill="#FB7185" font-size="13" font-weight="800" text-anchor="middle">U3 TPS92201DRVR</text>
+    <text x="320" y="108" fill="#94A3B8" font-size="8.5" text-anchor="middle">WSON-6 (2×2mm) 同步降压恒流</text>
+    <text x="320" y="122" fill="#FBBF24" font-size="8" text-anchor="middle">立创编号: C22427296 | 免二极管</text>
 
     <!-- 管脚连线 -->
-    <!-- Pin 3: VIN -->
-    <line x1="140" y1="130" x2="230" y2="130" stroke="#F59E0B" stroke-width="2"/>
-    <text x="235" y="134" fill="#F8FAFC" font-size="9">3 VIN</text>
-    <rect x="90" y="120" width="50" height="20" rx="3" fill="#D97706" />
-    <text x="115" y="134" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">BAT+</text>
+    <!-- Pin 1: VIN -->
+    <line x1="140" y1="140" x2="230" y2="140" stroke="#F59E0B" stroke-width="2"/>
+    <text x="235" y="144" fill="#F8FAFC" font-size="9">1 VIN</text>
+    <rect x="90" y="130" width="50" height="20" rx="3" fill="#D97706" />
+    <text x="115" y="144" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">BAT+</text>
 
-    <!-- Pin 2: DIM -->
-    <line x1="140" y1="165" x2="230" y2="165" stroke="#EC4899" stroke-width="2"/>
-    <text x="235" y="169" fill="#F8FAFC" font-size="9">2 DIM</text>
-    <rect x="90" y="155" width="50" height="20" rx="3" fill="#DB2777" />
-    <text x="115" y="169" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">PWM1</text>
+    <!-- Pin 5: EN/PWM -->
+    <line x1="140" y1="175" x2="230" y2="175" stroke="#EC4899" stroke-width="2"/>
+    <text x="235" y="179" fill="#F8FAFC" font-size="9">5 EN/PWM</text>
+    <rect x="75" y="165" width="65" height="20" rx="3" fill="#DB2777" />
+    <text x="107" y="179" fill="#FFF" font-size="8.5" font-weight="700" text-anchor="middle">PWM1(20k)</text>
 
-    <!-- Pin 1: CS -->
-    <line x1="140" y1="200" x2="230" y2="200" stroke="#38BDF8" stroke-width="1.5"/>
-    <text x="235" y="204" fill="#F8FAFC" font-size="9">1 CS</text>
-    <rect x="90" y="190" width="50" height="20" rx="3" fill="#0284C7" />
-    <text x="115" y="204" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">CS1</text>
+    <!-- Pin 4: FB (检流输入) -->
+    <line x1="140" y1="210" x2="230" y2="210" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="235" y="214" fill="#F8FAFC" font-size="9">4 FB</text>
+    <rect x="90" y="200" width="50" height="20" rx="3" fill="#0284C7" />
+    <text x="115" y="214" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">FB1</text>
 
-    <!-- Pin 4: VCC (旁路滤波) -->
-    <line x1="410" y1="130" x2="480" y2="130" stroke="#10B981" stroke-width="1.5"/>
-    <text x="385" y="134" fill="#F8FAFC" font-size="9">4 VCC</text>
-    <rect x="480" y="122" width="22" height="16" rx="2" fill="#334155" stroke="#10B981"/>
-    <text x="491" y="134" fill="#FFF" font-size="7.5" text-anchor="middle">1µF</text>
-    <line x1="491" y1="138" x2="491" y2="150" stroke="#64748B" stroke-width="1"/>
-    <text x="491" y="160" fill="#64748B" font-size="7" text-anchor="middle">GND</text>
+    <!-- Pin 2: GND -->
+    <line x1="410" y1="140" x2="480" y2="140" stroke="#64748B" stroke-width="1.5"/>
+    <text x="380" y="144" fill="#F8FAFC" font-size="9">2 GND</text>
+    <text x="495" y="144" fill="#64748B" font-size="8">GND</text>
 
-    <!-- Pin 5: DRV 输出功率回路 -->
-    <line x1="410" y1="165" x2="510" y2="165" stroke="#F43F5E" stroke-width="2"/>
-    <text x="385" y="169" fill="#F8FAFC" font-size="9">5 DRV</text>
-    <!-- 功率电感 L1 & 采样电阻 Rs1 -->
-    <rect x="510" y="152" width="60" height="26" rx="4" fill="#BE123C" stroke="#FB7185"/>
-    <text x="540" y="168" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">L1 2.2µH</text>
+    <!-- Pin 3: SW (开关功率端) -->
+    <line x1="410" y1="175" x2="510" y2="175" stroke="#F43F5E" stroke-width="2"/>
+    <text x="380" y="179" fill="#F8FAFC" font-size="9">3 SW</text>
+    <!-- 功率电感 L1 2.2uH -->
+    <rect x="510" y="162" width="60" height="26" rx="4" fill="#BE123C" stroke="#FB7185"/>
+    <text x="540" y="178" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">L1 2.2µH</text>
 
-    <line x1="570" y1="165" x2="630" y2="165" stroke="#F43F5E" stroke-width="2"/>
-    <rect x="630" y="155" width="80" height="22" rx="3" fill="#E11D48" />
-    <text x="670" y="170" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">WLED1- (负)</text>
+    <line x1="570" y1="175" x2="630" y2="175" stroke="#F43F5E" stroke-width="2"/>
+    <rect x="630" y="165" width="80" height="22" rx="3" fill="#E11D48" />
+    <text x="670" y="180" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">WLED1+ (正)</text>
 
-    <!-- BAT+ 接 WLED1+ -->
-    <rect x="630" y="115" width="80" height="22" rx="3" fill="#D97706" />
-    <text x="670" y="130" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">WLED1+ (正)</text>
-
-    <!-- 检流电阻 Rs1 0.10R -->
-    <rect x="510" y="200" width="70" height="24" rx="3" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
-    <text x="545" y="215" fill="#38BDF8" font-size="8.5" font-weight="700" text-anchor="middle">Rs1 0.10Ω/1206</text>
-    <text x="545" y="238" fill="#94A3B8" font-size="8" text-anchor="middle">Imax = 0.15V / 0.10Ω = 1.5A</text>
+    <!-- 检流采样 Rs1 -->
+    <rect x="510" y="205" width="70" height="24" rx="3" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="545" y="220" fill="#38BDF8" font-size="8" font-weight="700" text-anchor="middle">Rs1 0.133Ω</text>
+    <text x="545" y="242" fill="#94A3B8" font-size="7.5" text-anchor="middle">Imax = 0.2V / Rs = 1.50A</text>
 
     <!-- 说明栏 -->
     <rect x="30" y="260" width="690" height="155" rx="6" fill="#1E293B" stroke="#334155" />
-    <text x="50" y="285" fill="#F8FAFC" font-size="11" font-weight="700">★ 通道 1 硬件规格与调光模式 (主灯珠 - CREE / OSRAM 高功率白光 LED)</text>
-    <text x="50" y="308" fill="#CBD5E1" font-size="9.5">• 额定工作峰值电流: 1.50A | 采用降压恒流斩波拓扑，高电感储能效率 &gt; 92%</text>
-    <text x="50" y="328" fill="#CBD5E1" font-size="9.5">• TIM2_CH3 硬件 PWM (20kHz): 避免低频人眼闪烁与音频啸叫</text>
-    <text x="50" y="348" fill="#38BDF8" font-size="9.5">• 模式 1: 单击 100% 极亮 (450+ 流明) | 模式 2: 单击 25% 弱光微亮 (80 流明)</text>
-    <text x="50" y="368" fill="#F43F5E" font-size="9.5">• 模式 3: 双击 10Hz 战术致盲爆闪 (Strobe Mode)</text>
-    <text x="50" y="390" fill="#94A3B8" font-size="8.5">• 功率元器件选型: 肖特基 SS34 (3A/40V SMA) | 功率电感 CD43/NR4030 2.2µH (Isat &gt; 3.2A)</text>
+    <text x="50" y="285" fill="#F8FAFC" font-size="11" font-weight="700">★ 通道 1 硬件规格与调光模式 (TI TPS92201DRVR 同步降压)</text>
+    <text x="50" y="308" fill="#CBD5E1" font-size="9.5">• 额定工作峰值电流: 1.50A | 内置同步整流上下管 MOS，免除外挂肖特基二极管，效率 95%</text>
+    <text x="50" y="328" fill="#CBD5E1" font-size="9.5">• 精确 20.00kHz 硬件 PWM 驱动 (TIM2_CH3): 人耳超声频段，无任何音频啸叫与人眼频闪</text>
+    <text x="50" y="348" fill="#38BDF8" font-size="9.5">• 100% 占空比直通模式: 电池跌至 3.0V 接近 LED Vf 时全开直通，压降极小，杜绝跳水关灯</text>
+    <text x="50" y="368" fill="#F43F5E" font-size="9.5">• 关断静态功耗: EN 拉低时芯片关断电流仅 1µA，超长待机数月不亏电</text>
+    <text x="50" y="390" fill="#94A3B8" font-size="8.5">• 封装: WSON-6 (2×2mm)，PCB 面积缩减 52%，底部大面积散孔接地散热</text>
   </g>
 
-  <!-- ================= 模块 6: 通道 2 副泛光恒流驱动 (OC5011) ================= -->
+  <!-- ================= 模块 6: 通道 2 副泛光恒流驱动 (TI TPS92201) ================= -->
   <g transform="translate(820, 545)">
     <rect width="750" height="440" rx="8" fill="url(#cardGrad)" stroke="#F43F5E" stroke-width="1.5" />
     <rect width="750" height="32" rx="8" fill="#E11D48" fill-opacity="0.2" />
-    <text x="16" y="22" fill="#FB7185" font-size="13" font-weight="700">【模块 6】通道 2 降压恒流驱动 - 副泛光灯珠 (FLOODLIGHT DRIVER - 1.5A)</text>
+    <text x="16" y="22" fill="#FB7185" font-size="13" font-weight="700">【模块 6】通道 2 同步降压恒流驱动 - 副泛光灯珠 (TI TPS92201 - 1.5A)</text>
 
-    <!-- OC5011 IC 符号 -->
+    <!-- TPS92201 IC 符号 -->
     <rect x="230" y="65" width="180" height="170" rx="6" fill="#0F172A" stroke="#FB7185" stroke-width="2" />
-    <text x="320" y="95" fill="#FB7185" font-size="14" font-weight="800" text-anchor="middle">U4 OC5011</text>
-    <text x="320" y="112" fill="#94A3B8" font-size="9" text-anchor="middle">SOT-23-6 降压型高精度恒流 IC</text>
+    <text x="320" y="93" fill="#FB7185" font-size="13" font-weight="800" text-anchor="middle">U4 TPS92201DRVR</text>
+    <text x="320" y="108" fill="#94A3B8" font-size="8.5" text-anchor="middle">WSON-6 (2×2mm) 同步降压恒流</text>
+    <text x="320" y="122" fill="#FBBF24" font-size="8" text-anchor="middle">立创编号: C22427296 | 免二极管</text>
 
     <!-- 管脚连线 -->
-    <!-- Pin 3: VIN -->
-    <line x1="140" y1="130" x2="230" y2="130" stroke="#F59E0B" stroke-width="2"/>
-    <text x="235" y="134" fill="#F8FAFC" font-size="9">3 VIN</text>
-    <rect x="90" y="120" width="50" height="20" rx="3" fill="#D97706" />
-    <text x="115" y="134" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">BAT+</text>
+    <!-- Pin 1: VIN -->
+    <line x1="140" y1="140" x2="230" y2="140" stroke="#F59E0B" stroke-width="2"/>
+    <text x="235" y="144" fill="#F8FAFC" font-size="9">1 VIN</text>
+    <rect x="90" y="130" width="50" height="20" rx="3" fill="#D97706" />
+    <text x="115" y="144" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">BAT+</text>
 
-    <!-- Pin 2: DIM -->
-    <line x1="140" y1="165" x2="230" y2="165" stroke="#EC4899" stroke-width="2"/>
-    <text x="235" y="169" fill="#F8FAFC" font-size="9">2 DIM</text>
-    <rect x="90" y="155" width="50" height="20" rx="3" fill="#DB2777" />
-    <text x="115" y="169" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">PWM2</text>
+    <!-- Pin 5: EN/PWM -->
+    <line x1="140" y1="175" x2="230" y2="175" stroke="#EC4899" stroke-width="2"/>
+    <text x="235" y="179" fill="#F8FAFC" font-size="9">5 EN/PWM</text>
+    <rect x="75" y="165" width="65" height="20" rx="3" fill="#DB2777" />
+    <text x="107" y="179" fill="#FFF" font-size="8.5" font-weight="700" text-anchor="middle">PWM2(20k)</text>
 
-    <!-- Pin 1: CS -->
-    <line x1="140" y1="200" x2="230" y2="200" stroke="#38BDF8" stroke-width="1.5"/>
-    <text x="235" y="204" fill="#F8FAFC" font-size="9">1 CS</text>
-    <rect x="90" y="190" width="50" height="20" rx="3" fill="#0284C7" />
-    <text x="115" y="204" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">CS2</text>
+    <!-- Pin 4: FB -->
+    <line x1="140" y1="210" x2="230" y2="210" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="235" y="214" fill="#F8FAFC" font-size="9">4 FB</text>
+    <rect x="90" y="200" width="50" height="20" rx="3" fill="#0284C7" />
+    <text x="115" y="214" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">FB2</text>
 
-    <!-- Pin 4: VCC -->
-    <line x1="410" y1="130" x2="480" y2="130" stroke="#10B981" stroke-width="1.5"/>
-    <text x="385" y="134" fill="#F8FAFC" font-size="9">4 VCC</text>
-    <rect x="480" y="122" width="22" height="16" rx="2" fill="#334155" stroke="#10B981"/>
-    <text x="491" y="134" fill="#FFF" font-size="7.5" text-anchor="middle">1µF</text>
-    <line x1="491" y1="138" x2="491" y2="150" stroke="#64748B" stroke-width="1"/>
-    <text x="491" y="160" fill="#64748B" font-size="7" text-anchor="middle">GND</text>
+    <!-- Pin 2: GND -->
+    <line x1="410" y1="140" x2="480" y2="140" stroke="#64748B" stroke-width="1.5"/>
+    <text x="380" y="144" fill="#F8FAFC" font-size="9">2 GND</text>
+    <text x="495" y="144" fill="#64748B" font-size="8">GND</text>
 
-    <!-- Pin 5: DRV 输出功率回路 -->
-    <line x1="410" y1="165" x2="510" y2="165" stroke="#F43F5E" stroke-width="2"/>
-    <text x="385" y="169" fill="#F8FAFC" font-size="9">5 DRV</text>
-    <!-- 功率电感 L2 & 采样电阻 Rs2 -->
-    <rect x="510" y="152" width="60" height="26" rx="4" fill="#BE123C" stroke="#FB7185"/>
-    <text x="540" y="168" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">L2 2.2µH</text>
+    <!-- Pin 3: SW -->
+    <line x1="410" y1="175" x2="510" y2="175" stroke="#F43F5E" stroke-width="2"/>
+    <text x="380" y="179" fill="#F8FAFC" font-size="9">3 SW</text>
+    <rect x="510" y="162" width="60" height="26" rx="4" fill="#BE123C" stroke="#FB7185"/>
+    <text x="540" y="178" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">L2 2.2µH</text>
 
-    <line x1="570" y1="165" x2="630" y2="165" stroke="#F43F5E" stroke-width="2"/>
-    <rect x="630" y="155" width="80" height="22" rx="3" fill="#E11D48" />
-    <text x="670" y="170" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">WLED2- (负)</text>
+    <line x1="570" y1="175" x2="630" y2="175" stroke="#F43F5E" stroke-width="2"/>
+    <rect x="630" y="165" width="80" height="22" rx="3" fill="#E11D48" />
+    <text x="670" y="180" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">WLED2+ (正)</text>
 
-    <rect x="630" y="115" width="80" height="22" rx="3" fill="#D97706" />
-    <text x="670" y="130" fill="#FFF" font-size="9" font-weight="700" text-anchor="middle">WLED2+ (正)</text>
-
-    <rect x="510" y="200" width="70" height="24" rx="3" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
-    <text x="545" y="215" fill="#38BDF8" font-size="8.5" font-weight="700" text-anchor="middle">Rs2 0.10Ω/1206</text>
-    <text x="545" y="238" fill="#94A3B8" font-size="8" text-anchor="middle">Imax = 0.15V / 0.10Ω = 1.5A</text>
+    <rect x="510" y="205" width="70" height="24" rx="3" fill="#1E293B" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="545" y="220" fill="#38BDF8" font-size="8" font-weight="700" text-anchor="middle">Rs2 0.133Ω</text>
+    <text x="545" y="242" fill="#94A3B8" font-size="7.5" text-anchor="middle">Imax = 0.2V / Rs = 1.50A</text>
 
     <!-- 说明栏 -->
     <rect x="30" y="260" width="690" height="155" rx="6" fill="#1E293B" stroke="#334155" />
-    <text x="50" y="285" fill="#F8FAFC" font-size="11" font-weight="700">★ 通道 2 硬件规格与配合调光模式 (副泛光大角度大面积照明)</text>
-    <text x="50" y="308" fill="#CBD5E1" font-size="9.5">• 额定工作峰值电流: 1.50A | 与主聚光形成“远聚光 + 近泛光”复合战术配光</text>
-    <text x="50" y="328" fill="#CBD5E1" font-size="9.5">• TIM2_CH4 硬件 PWM: 第 3 次短按启动，PWM2 占空比恒定 50% 柔和照亮周围</text>
-    <text x="50" y="348" fill="#EC4899" font-size="9.5">• 战术组合: 主灯 25% + 副灯 50% 搜索巡逻模式，视野极佳且温升平稳</text>
-    <text x="50" y="368" fill="#FBBF24" font-size="9.5">• 长按 &gt;1.2s: 同时关闭 PWM1 和 PWM2，状态机复位；30 秒无操作关机休眠</text>
-    <text x="50" y="390" fill="#94A3B8" font-size="8.5">• 备用按键 (SW2/PA6): 任意时刻按下触发双通道 100% 满功率点动极亮！</text>
+    <text x="50" y="285" fill="#F8FAFC" font-size="11" font-weight="700">★ 通道 2 硬件规格与配合调光模式 (副泛光近距离照明)</text>
+    <text x="50" y="308" fill="#CBD5E1" font-size="9.5">• 额定工作峰值电流: 1.50A | 与主聚光形成“远聚光 + 近泛光”战术组合配光</text>
+    <text x="50" y="328" fill="#CBD5E1" font-size="9.5">• 精确 20.00kHz 硬件 PWM (TIM2_CH4): 第 3 档点亮，双通 20kHz 完美静音</text>
+    <text x="50" y="348" fill="#38BDF8" font-size="9.5">• 芯片型号: TI TPS92201DRVR (WSON-6 2×2mm)，与通道 1 同型号，统一 BOM 便于备料</text>
+    <text x="50" y="368" fill="#F43F5E" font-size="9.5">• 100% 直通放电: 极低电量下微光保命档副灯关闭，集中保命电量供应主灯</text>
+    <text x="50" y="390" fill="#94A3B8" font-size="8.5">• 选型出处: 立创商城编号 C22427296，极小尺寸、高集成度、便携灯具首选</text>
   </g>
 </svg>
