@@ -1,14 +1,17 @@
+/********************************** (C) COPYRIGHT *******************************
+ * File Name          : gunlight.c
+ * Author             : Weapon Systems Lab
+ * Version            : V3.0.0 (Unified Architecture)
+ * Description        : 战术枪灯核心业务状态机与交互式 CLI 调参引擎
+ *******************************************************************************/
 #include "gunlight.h"
-#include "bsp_key.h"
-#include "bsp_pwm.h"
-#include "bsp_adc.h"
-#include "bsp_led.h"
-#include "bsp_isp.h"
+#include "bsp.h"
 #include "usb_cdc.h"
-#include "bsp_cli.h"
 #include "debug.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-static uint16_t s_standby_timeout_ticks = 1000; // 默认 10秒无操作超时 (1000 * 10ms = 10s) 进入 Standby
 #define STROBE_PERIOD_TICKS     5       // 50ms 翻转一次 (10Hz 爆闪)
 #define ADC_SAMPLE_PERIOD_TICKS 20      // 200ms 采样一次电压
 
@@ -22,14 +25,11 @@ typedef enum {
 
 /* 国际标准 SOS 莫尔斯电码序列 (· · · — — — · · ·) */
 static const struct {
-    uint8_t on;         // 亮(1) 或 灭(0)
-    uint16_t duration;  // 持续 10ms ticks (20=200ms, 60=600ms, 140=1400ms)
+    uint8_t on;
+    uint16_t duration;
 } c_sos_seq[] = {
-    // S: · · ·
     {1, 20}, {0, 20}, {1, 20}, {0, 20}, {1, 20}, {0, 60},
-    // O: — — —
     {1, 60}, {0, 20}, {1, 60}, {0, 20}, {1, 60}, {0, 60},
-    // S: · · ·
     {1, 20}, {0, 20}, {1, 20}, {0, 20}, {1, 20}, {0, 140}
 };
 #define SOS_SEQ_LEN (sizeof(c_sos_seq) / sizeof(c_sos_seq[0]))
@@ -39,6 +39,7 @@ static Battery_Tier_e   s_bat_tier = BAT_TIER_NORMAL;
 static uint16_t s_cur_vbat = 3800;
 static uint16_t s_cur_pwm1 = 0;
 static uint16_t s_cur_pwm2 = 0;
+static uint16_t s_standby_timeout_ticks = 1000; // 默认 10s (1000 * 10ms)
 
 static uint16_t s_standby_timer = 0;
 static uint16_t s_strobe_timer = 0;
@@ -46,11 +47,12 @@ static uint8_t  s_strobe_flag = 0;
 static uint8_t  s_sos_step = 0;
 static uint16_t s_sos_timer = 0;
 static uint16_t s_adc_timer = 0;
-static uint8_t  s_tactical_override = 0; // 备用按键战术点亮覆盖标志
-static uint8_t  s_cutoff_confirm = 0;    // 截止保护防误判连续计数
+static uint8_t  s_tactical_override = 0;
+static uint8_t  s_cutoff_confirm = 0;
 
 static void Gunlight_Apply_PWM(void);
 static void Gunlight_Update_Battery_Status(void);
+static void Gunlight_Process_CLI(void);
 
 static void Gunlight_SetPWM_Internal(uint16_t p1, uint16_t p2)
 {
@@ -79,27 +81,25 @@ static void Gunlight_Apply_PWM(void)
         return;
     }
 
-    // 关灯状态
     if (s_gl_state == GL_STATE_OFF)
     {
         Gunlight_SetPWM_Internal(0, 0);
         return;
     }
 
-    // 【保命微光档强制接管】当电池极度亏电 (2.95V ~ 3.1V) 时，强制 5% 月光微光，副灯关闭
+    // 保命微光档强制接管：强制 5% 月光微光，副灯关闭
     if (s_bat_tier == BAT_TIER_CRITICAL)
     {
-        Gunlight_SetPWM_Internal(50, 0); // 5% 超低功耗月光照路
+        Gunlight_SetPWM_Internal(50, 0);
         return;
     }
 
     switch (s_gl_state)
     {
         case GL_STATE_MODE1_100:
-            // 模式 1: 低电节能限流钳位为 25%，正常电量输出 100%
             if (s_bat_tier == BAT_TIER_LOW)
             {
-                Gunlight_SetPWM_Internal(250, 0); // 25% 节能限流防跳水
+                Gunlight_SetPWM_Internal(250, 0); // 节能降额 25%
             }
             else
             {
@@ -108,24 +108,21 @@ static void Gunlight_Apply_PWM(void)
             break;
 
         case GL_STATE_MODE2_25:
-            // 模式 2: 主灯 25%
             Gunlight_SetPWM_Internal(250, 0);
             break;
 
         case GL_STATE_MODE3_DUAL:
-            // 模式 3: 主灯 (3535 WLED) + 副灯 (650nm ~3mW 瞄准激光二极管) 同时亮
             if (s_bat_tier == BAT_TIER_LOW)
             {
-                Gunlight_SetPWM_Internal(250, 1000);   // 主灯降额 25% 节能延长续航
+                Gunlight_SetPWM_Internal(250, 1000); // 主灯降额，激光器维持 100%
             }
             else
             {
-                Gunlight_SetPWM_Internal(1000, 1000);  // 主灯 100% 满功率照明 (500LX-1000LX), 激光 100%
+                Gunlight_SetPWM_Internal(1000, 1000); // 双灯 100% 满额
             }
             break;
 
         case GL_STATE_STROBE:
-            // 爆闪由周期定时器动态翻转
             if (s_strobe_flag)
             {
                 uint16_t duty = (s_bat_tier == BAT_TIER_LOW) ? 350 : 1000;
@@ -138,7 +135,6 @@ static void Gunlight_Apply_PWM(void)
             break;
 
         case GL_STATE_SOS:
-            // SOS 由莫尔斯序列步进控制
             if (c_sos_seq[s_sos_step].on)
             {
                 uint16_t duty = (s_bat_tier == BAT_TIER_LOW) ? 350 : 1000;
@@ -164,7 +160,7 @@ static void Gunlight_Update_Battery_Status(void)
     uint16_t vbat = BSP_ADC_GetBatteryVoltage_mV();
     s_cur_vbat = vbat;
 
-    // 1. 低电量截止保护 (< 2950mV，连续确认2次防瞬态浪涌干扰)
+    // 1. 低电量截止保护 (< 2950mV，连续确认2次防瞬态浪涌误判)
     if (vbat < 2950)
     {
         s_cutoff_confirm++;
@@ -172,10 +168,10 @@ static void Gunlight_Update_Battery_Status(void)
         {
             PRINT("[PWR] Battery Critical (< 2.95V)! Cutoff protection triggered.\r\n");
             BSP_PWM_AllOff();
-            BSP_StatusLED_SetColor(255, 0, 0); // 红色警示
+            BSP_StatusLED_SetColor(255, 0, 0);
             Delay_Ms(300);
             BSP_StatusLED_AllOff();
-            Gunlight_Enter_LowPower_Standby(); // 强制进入 Standby 保护电池不被过放
+            BSP_EnterStandby();
             return;
         }
     }
@@ -184,89 +180,36 @@ static void Gunlight_Update_Battery_Status(void)
         s_cutoff_confirm = 0;
     }
 
-    // 2. 阶梯降档判定 (含迟滞回差 Hysteresis 防抖)
+    // 2. 阶梯降档判定 (含 50mV 迟滞回差防抖)
     Battery_Tier_e old_tier = s_bat_tier;
 
     if (vbat < 3100)
     {
-        // 极低电量：进入 5% 保命微光档
-        s_bat_tier = BAT_TIER_CRITICAL;
+        s_bat_tier = BAT_TIER_CRITICAL; // 5% 保命微光档
     }
     else if (vbat < 3400)
     {
-        // 若之前在极低微光档，需升至 3150mV 才退出微光档
         if (s_bat_tier != BAT_TIER_CRITICAL || vbat >= 3150)
         {
-            s_bat_tier = BAT_TIER_LOW; // 节能降额限流
+            s_bat_tier = BAT_TIER_LOW; // 25% 节能限流
         }
     }
     else if (vbat >= 3450)
     {
-        // 满血放电档 (带 50mV 迟滞回差)
-        s_bat_tier = BAT_TIER_NORMAL;
+        s_bat_tier = BAT_TIER_NORMAL; // 满血放电档
     }
 
-    // 若放电阶梯变更，立即重新刷新功率限制
     if (old_tier != s_bat_tier)
     {
         PRINT("[PWR] Battery Tier Switch: %d -> %d (Vbat=%d mV)\r\n", old_tier, s_bat_tier, (int)vbat);
         Gunlight_Apply_PWM();
     }
 
-    // 3. RGB 指示灯更新 (在常规照明档位下实时展示)
-    if (vbat >= 3600)
-    {
-        BSP_StatusLED_SetMode(STATUS_LED_BAT_HIGH); // 绿灯常亮 (>= 3.6V)
-    }
-    else if (vbat >= 3400)
-    {
-        BSP_StatusLED_SetMode(STATUS_LED_BAT_MED);  // 蓝灯常亮 (3.4V ~ 3.6V)
-    }
-    else if (vbat >= 3100)
-    {
-        BSP_StatusLED_SetMode(STATUS_LED_BAT_LOW);  // 黄灯慢闪 (3.1V ~ 3.4V)
-    }
-    else
-    {
-        BSP_StatusLED_SetMode(STATUS_LED_BAT_CRITICAL); // 红灯快闪 (2.95V ~ 3.1V)
-    }
-}
-
-/**
- * @brief 进入真正的待机低功耗模式 (Standby 模式，功耗 ~10uA)
- */
-void Gunlight_Enter_LowPower_Standby(void)
-{
-    PRINT("[PWR] Entering Low-Power Standby Mode...\r\n");
-
-    // 0. 彻底断开 USB 虚拟串口控制器与 DP 上拉，消除毫安级漏电
-    USB_CDC_DeInit();
-
-    // 1. 关闭所有 PWM 输出
-    BSP_PWM_AllOff();
-
-    // 2. 关闭 RGB 指示灯
-    BSP_StatusLED_AllOff();
-
-    // 3. 关闭 ADC 转换与内部参考电压
-    BSP_ADC_DeInit();
-
-    // 4. 等待用户按键松手，防止立即二次触发唤醒
-    while (BSP_MainKey_IsPressed())
-    {
-        Delay_Ms(10);
-    }
-    Delay_Ms(50); // 防抖消除
-
-    // 5. 开启电源管理时钟，使能 WKUP (PA0) 引脚唤醒
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR, ENABLE);
-    PWR_WakeUpPinCmd(ENABLE);
-
-    // 6. 清除唤醒标志，进入 Standby 模式
-    PWR_ClearFlag(PWR_FLAG_WU);
-    PWR_EnterSTANDBYMode();
-
-    // 唤醒后系统会自动产生系统复位重新执行 main()
+    // 3. RGB 指示灯更新
+    if (vbat >= 3600)      BSP_StatusLED_SetMode(STATUS_LED_BAT_HIGH);
+    else if (vbat >= 3400) BSP_StatusLED_SetMode(STATUS_LED_BAT_MED);
+    else if (vbat >= 3100) BSP_StatusLED_SetMode(STATUS_LED_BAT_LOW);
+    else                   BSP_StatusLED_SetMode(STATUS_LED_BAT_CRITICAL);
 }
 
 /**
@@ -274,10 +217,6 @@ void Gunlight_Enter_LowPower_Standby(void)
  */
 void Gunlight_Init(void)
 {
-    BSP_Key_Init();
-    BSP_PWM_Init();
-    BSP_StatusLED_Init();
-
     s_gl_state = GL_STATE_OFF;
     s_bat_tier = BAT_TIER_NORMAL;
     s_standby_timer = 0;
@@ -289,8 +228,19 @@ void Gunlight_Init(void)
 
     BSP_PWM_AllOff();
     BSP_StatusLED_AllOff();
-
     PRINT("[GUNLIGHT] Init Completed.\r\n");
+}
+
+/**
+ * @brief 正常开机点亮模式 1
+ */
+void Gunlight_TurnOn_Mode1(void)
+{
+    s_gl_state = GL_STATE_MODE1_100;
+    s_standby_timer = 0;
+    Gunlight_Update_Battery_Status();
+    Gunlight_Apply_PWM();
+    PRINT("[GUNLIGHT] Turned On -> Mode 1 (100%%)\r\n");
 }
 
 /**
@@ -307,7 +257,7 @@ void Gunlight_Process_10ms(void)
     {
         s_tactical_override = 1;
         Gunlight_Apply_PWM();
-        BSP_StatusLED_SetColor(0, 255, 0); // 绿光点动提示
+        BSP_StatusLED_SetColor(0, 255, 0); // 战术绿光点动提示
     }
     else if (aux_evt == AUX_KEY_EVT_RELEASE)
     {
@@ -326,102 +276,80 @@ void Gunlight_Process_10ms(void)
     // 3. 主按键事件响应
     if (key_evt != KEY_EVT_NONE)
     {
-        // 只要有任何按键操作，重置 10S 超时计时器
-        s_standby_timer = 0;
+        s_standby_timer = 0; // 重置无操作超时
 
         switch (key_evt)
         {
             case KEY_EVT_SINGLE_CLICK:
-                // 单击模式循环: 主灯100% -> 25% -> 主+副同时亮 -> 同时关闭 -> 100%
+                // 单击轮循: 主灯100% -> 25% -> 主+激光双开 -> 全关 -> 100%
                 if (s_gl_state == GL_STATE_OFF)
                 {
-                    // 1. 开机 -> 模式 1
                     s_gl_state = GL_STATE_MODE1_100;
-                    BSP_ADC_Init();
                     Gunlight_Update_Battery_Status();
                     Gunlight_Apply_PWM();
-                    PRINT("[GUNLIGHT] Click: Mode 1 Turned On\r\n");
+                    PRINT("[GUNLIGHT] Click: Mode 1\r\n");
                 }
                 else if (s_gl_state == GL_STATE_MODE1_100)
                 {
-                    // 2. 模式 2: 主灯 25%
                     s_gl_state = GL_STATE_MODE2_25;
                     Gunlight_Apply_PWM();
-                    PRINT("[GUNLIGHT] Click: Mode 2 (Main 25%)\r\n");
+                    PRINT("[GUNLIGHT] Click: Mode 2 (25%%)\r\n");
                 }
                 else if (s_gl_state == GL_STATE_MODE2_25)
                 {
-                    // 3. 模式 3: 主灯+副灯 同时亮
                     s_gl_state = GL_STATE_MODE3_DUAL;
                     Gunlight_Apply_PWM();
-                    PRINT("[GUNLIGHT] Click: Mode 3 (Main + Aux)\r\n");
+                    PRINT("[GUNLIGHT] Click: Mode 3 (Main + Laser)\r\n");
                 }
-                else if (s_gl_state == GL_STATE_MODE3_DUAL)
+                else if (s_gl_state == GL_STATE_MODE3_DUAL || s_gl_state == GL_STATE_STROBE || s_gl_state == GL_STATE_SOS)
                 {
-                    // 4. 同时关闭！
                     s_gl_state = GL_STATE_OFF;
                     s_standby_timer = 0;
-                    BSP_PWM_AllOff();
+                    Gunlight_SetPWM_Internal(0, 0);
                     BSP_StatusLED_AllOff();
-                    BSP_ADC_DeInit();
-                    PRINT("[GUNLIGHT] Click: All Off, 10s countdown to Standby...\r\n");
-                }
-                else if (s_gl_state == GL_STATE_STROBE || s_gl_state == GL_STATE_SOS)
-                {
-                    // 爆闪或SOS特殊模式下单按退出，返回关灯
-                    s_gl_state = GL_STATE_OFF;
-                    s_standby_timer = 0;
-                    BSP_PWM_AllOff();
-                    BSP_StatusLED_AllOff();
-                    BSP_ADC_DeInit();
-                    PRINT("[GUNLIGHT] Click: Exit Special Mode -> All Off\r\n");
+                    PRINT("[GUNLIGHT] Click: All Off\r\n");
                 }
                 break;
 
             case KEY_EVT_DOUBLE_CLICK:
-                // 双击：启动 10Hz 战术爆闪模式 (青色/冰蓝指示)
+                // 双击：10Hz 战术爆闪
                 s_gl_state = GL_STATE_STROBE;
                 s_strobe_timer = 0;
                 s_strobe_flag = 1;
-                BSP_ADC_Init();
                 BSP_StatusLED_SetMode(STATUS_LED_STROBE);
                 Gunlight_Apply_PWM();
                 PRINT("[GUNLIGHT] Double Click: 10Hz Strobe Mode\r\n");
                 break;
 
             case KEY_EVT_TRIPLE_CLICK:
-                // 三连击：启动国际标准 SOS 救援模式 (紫色莫尔斯同步指示)
+                // 三击：国际标准 SOS 救援
                 s_gl_state = GL_STATE_SOS;
                 s_sos_step = 0;
                 s_sos_timer = 0;
-                BSP_ADC_Init();
                 BSP_StatusLED_SetMode(STATUS_LED_SOS);
                 Gunlight_Apply_PWM();
                 PRINT("[GUNLIGHT] Triple Click: SOS Distress Mode\r\n");
                 break;
 
             case KEY_EVT_LONG_PRESS:
-                // 任何模式下长按：全部关闭
+                // 长按：全部关闭并检测是否保持按住 8 秒跳转 ISP
                 s_gl_state = GL_STATE_OFF;
                 s_standby_timer = 0;
-                BSP_PWM_AllOff();
-                BSP_StatusLED_AllOff(); // 关闭指示灯
-                BSP_ADC_DeInit();       // 停止电压采样
-                PRINT("[GUNLIGHT] Long-press: All Off! Checking for 8s ISP hold...\r\n");
+                Gunlight_SetPWM_Internal(0, 0);
+                BSP_StatusLED_AllOff();
+                PRINT("[GUNLIGHT] Long Press: All Off. Checking 8s ISP hold...\r\n");
 
-                // 关机灭灯后，若继续保持按住达 8 秒进入 ISP 烧录模式
                 uint16_t extra_cnt = 0;
                 while (BSP_MainKey_IsPressed())
                 {
                     Delay_Ms(10);
                     extra_cnt++;
-                    if (extra_cnt >= 680) // 1.2s + 6.8s = 8 秒
+                    if (extra_cnt >= 680) // 1.2s + 6.8s = 8 秒！
                     {
-                        PRINT("[GUNLIGHT] 8s hold reached -> Enter ISP Bootloader!\r\n");
-                        BSP_ISP_JumpToBootloader();
+                        PRINT("[GUNLIGHT] 8s reached -> Jump to ISP Bootloader!\r\n");
+                        BSP_JumpToBootloader();
                     }
                 }
-                PRINT("[GUNLIGHT] All Off confirmed, 10s countdown to Standby...\r\n");
                 break;
 
             default:
@@ -451,9 +379,8 @@ void Gunlight_Process_10ms(void)
         }
     }
 
-    // 5. 电压检测与阶梯降档管理：常规照明模式下周期采样
-    if (s_gl_state == GL_STATE_MODE1_100 || s_gl_state == GL_STATE_MODE2_25 ||
-        s_gl_state == GL_STATE_MODE3_DUAL || s_tactical_override)
+    // 5. 电压采样与阶梯降档
+    if (s_gl_state != GL_STATE_OFF || s_tactical_override)
     {
         s_adc_timer++;
         if (s_adc_timer >= ADC_SAMPLE_PERIOD_TICKS)
@@ -463,40 +390,132 @@ void Gunlight_Process_10ms(void)
         }
     }
 
-    // 6. 灭灯关闭状态下的无操作关机休眠倒计时
+    // 6. 灭灯无操作自动休眠倒计时
     if (s_gl_state == GL_STATE_OFF && !s_tactical_override)
     {
         s_standby_timer++;
         if (s_standby_timer >= s_standby_timeout_ticks)
         {
-            Gunlight_Enter_LowPower_Standby();
+            BSP_EnterStandby();
         }
     }
 
-    // 7. 处理 RGB 指示灯动画时钟
+    // 7. 处理 RGB 动画与 USB CLI 解析
     BSP_StatusLED_Process_10ms();
-
-    // 8. 处理 USB 虚拟串口 CLI 调参及命令解析
-    BSP_CLI_Process();
+    Gunlight_Process_CLI();
 }
 
-/**
- * @brief 正常开机点亮模式 1
- */
-void Gunlight_TurnOn_Mode1(void)
+/* -------------------------------------------------------------------------- */
+/* 内置 USB CLI 调参命令行解析引擎 (无额外依赖，极速响应)                      */
+/* -------------------------------------------------------------------------- */
+static char s_cli_line[64];
+static uint8_t s_cli_idx = 0;
+
+static void Gunlight_Process_CLI(void)
 {
-    s_gl_state = GL_STATE_MODE1_100;
-    s_standby_timer = 0;
-    BSP_ADC_Init();
-    Gunlight_Update_Battery_Status();
-    Gunlight_Apply_PWM();
-    PRINT("[GUNLIGHT] Turned On -> Mode 1\r\n");
+    while (USB_CDC_Available())
+    {
+        int16_t ch = USB_CDC_ReadByte();
+        if (ch < 0) break;
+
+        if (ch == '\r' || ch == '\n')
+        {
+            if (s_cli_idx > 0)
+            {
+                s_cli_line[s_cli_idx] = '\0';
+                s_cli_idx = 0;
+
+                // 指令分发
+                if (strcasecmp(s_cli_line, "STATUS") == 0)
+                {
+                    printf("[STATUS] State: %d, Vbat: %d mV, BatTier: %d, PWM1: %d/1000, PWM2: %d/1000, Timeout: %ds\r\n",
+                           s_gl_state, s_cur_vbat, s_bat_tier, s_cur_pwm1, s_cur_pwm2, s_standby_timeout_ticks / 100);
+                }
+                else if (strncasecmp(s_cli_line, "SET PWM1 ", 9) == 0)
+                {
+                    int duty = atoi(&s_cli_line[9]);
+                    if (duty < 0) duty = 0;
+                    if (duty > 1000) duty = 1000;
+                    s_cur_pwm1 = (uint16_t)duty;
+                    BSP_PWM_SetDuty_PWM1(s_cur_pwm1);
+                    s_standby_timer = 0;
+                    printf("[OK] Set PWM1 = %d/1000 (%.1f%%)\r\n", s_cur_pwm1, (float)s_cur_pwm1 / 10.0f);
+                }
+                else if (strncasecmp(s_cli_line, "SET PWM2 ", 9) == 0)
+                {
+                    int duty = atoi(&s_cli_line[9]);
+                    if (duty < 0) duty = 0;
+                    if (duty > 1000) duty = 1000;
+                    s_cur_pwm2 = (uint16_t)duty;
+                    BSP_PWM_SetDuty_PWM2(s_cur_pwm2);
+                    s_standby_timer = 0;
+                    printf("[OK] Set PWM2 = %d/1000 (%.1f%%)\r\n", s_cur_pwm2, (float)s_cur_pwm2 / 10.0f);
+                }
+                else if (strncasecmp(s_cli_line, "SET MODE ", 9) == 0)
+                {
+                    int mode = atoi(&s_cli_line[9]);
+                    if (mode >= 0 && mode <= 5)
+                    {
+                        Gunlight_SetState((Gunlight_State_e)mode);
+                        printf("[OK] Mode switched to %d\r\n", mode);
+                    }
+                    else
+                    {
+                        printf("[ERR] Invalid mode 0-5\r\n");
+                    }
+                }
+                else if (strncasecmp(s_cli_line, "SET TIMEOUT ", 12) == 0)
+                {
+                    int sec = atoi(&s_cli_line[12]);
+                    if (sec >= 1 && sec <= 120)
+                    {
+                        s_standby_timeout_ticks = (uint16_t)(sec * 100);
+                        printf("[OK] Set Standby Timeout = %ds\r\n", sec);
+                    }
+                    else
+                    {
+                        printf("[ERR] Timeout range: 1~120s\r\n");
+                    }
+                }
+                else if (strcasecmp(s_cli_line, "ISP") == 0)
+                {
+                    printf("[SYS] Jump to Bootloader requested via USB...\r\n");
+                    BSP_JumpToBootloader();
+                }
+                else if (strcasecmp(s_cli_line, "REBOOT") == 0)
+                {
+                    printf("[SYS] Rebooting...\r\n");
+                    Delay_Ms(20);
+                    NVIC_SystemReset();
+                }
+                else if (strcasecmp(s_cli_line, "HELP") == 0)
+                {
+                    printf("\r\n=== Tactical Gunlight CLI Commands ===\r\n");
+                    printf("  STATUS              : Get all telemetry\r\n");
+                    printf("  SET PWM1 <0-1000>   : Set Main WLED duty\r\n");
+                    printf("  SET PWM2 <0-1000>   : Set Laser duty\r\n");
+                    printf("  SET MODE <0-5>      : Set state (0:Off, 1:100%%, 2:25%%, 3:Dual, 4:Strobe, 5:SOS)\r\n");
+                    printf("  SET TIMEOUT <1-120> : Set auto-sleep seconds\r\n");
+                    printf("  ISP                 : Jump to factory Bootloader\r\n");
+                    printf("  REBOOT              : Soft reset system\r\n\r\n");
+                }
+                else
+                {
+                    printf("[ERR] Unknown command: %s. Type HELP.\r\n", s_cli_line);
+                }
+            }
+        }
+        else if (ch >= 32 && ch <= 126 && s_cli_idx < sizeof(s_cli_line) - 1)
+        {
+            s_cli_line[s_cli_idx++] = (char)ch;
+        }
+    }
 }
 
-Gunlight_State_e Gunlight_GetState(void)
-{
-    return s_gl_state;
-}
+/* -------------------------------------------------------------------------- */
+/* Getter / Setter 实现                                                       */
+/* -------------------------------------------------------------------------- */
+Gunlight_State_e Gunlight_GetState(void) { return s_gl_state; }
 
 void Gunlight_SetState(Gunlight_State_e state)
 {
@@ -506,42 +525,19 @@ void Gunlight_SetState(Gunlight_State_e state)
     {
         Gunlight_SetPWM_Internal(0, 0);
         BSP_StatusLED_AllOff();
-        BSP_ADC_DeInit();
     }
     else
     {
-        BSP_ADC_Init();
         Gunlight_Update_Battery_Status();
         Gunlight_Apply_PWM();
     }
 }
 
-uint16_t Gunlight_GetBatteryVoltage_mV(void)
-{
-    return s_cur_vbat;
-}
-
-uint8_t Gunlight_GetBatteryTier(void)
-{
-    return (uint8_t)s_bat_tier;
-}
-
-uint16_t Gunlight_GetStandbyTimeoutSec(void)
-{
-    return s_standby_timeout_ticks / 100;
-}
-
-void Gunlight_SetStandbyTimeoutSec(uint16_t sec)
-{
-    s_standby_timeout_ticks = sec * 100;
-}
-
-uint16_t Gunlight_GetPwm1Duty(void)
-{
-    return s_cur_pwm1;
-}
-
-uint16_t Gunlight_GetPwm2Duty(void)
-{
-    return s_cur_pwm2;
-}
+uint16_t Gunlight_GetBatteryVoltage_mV(void) { return s_cur_vbat; }
+uint8_t  Gunlight_GetBatteryTier(void) { return (uint8_t)s_bat_tier; }
+uint16_t Gunlight_GetStandbyTimeoutSec(void) { return s_standby_timeout_ticks / 100; }
+void     Gunlight_SetStandbyTimeoutSec(uint16_t sec) { s_standby_timeout_ticks = sec * 100; }
+uint16_t Gunlight_GetPwm1Duty(void) { return s_cur_pwm1; }
+uint16_t Gunlight_GetPwm2Duty(void) { return s_cur_pwm2; }
+void     Gunlight_SetPwm1Duty(uint16_t duty) { s_cur_pwm1 = (duty > 1000) ? 1000 : duty; BSP_PWM_SetDuty_PWM1(s_cur_pwm1); }
+void     Gunlight_SetPwm2Duty(uint16_t duty) { s_cur_pwm2 = (duty > 1000) ? 1000 : duty; BSP_PWM_SetDuty_PWM2(s_cur_pwm2); }

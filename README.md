@@ -359,5 +359,31 @@
    cargo run --manifest-path src-tauri/Cargo.toml
    ```
 
+---
+
+## 8. 软件架构极简优化与模块设计 (V3.0 Unified Architecture)
+
+为了降低代码冗余、提升系统运行稳定性与后期可维护性，固件工程摒弃了过度工程化（Over-Engineering）的多层零散设计，收拢为清爽利落的 **4 核心模块**：
+
+```
+User/
+├── bsp.h / bsp.c           【板级硬件支持库 (All-in-One)】
+│                           - 整合按键扫描 (Key)、PWM 调光、ADC 采样、单线 RGB、系统待机与 ISP 跳转
+│                           - 所有硬件寄存器操作集中于一处，换芯片或改 PCB 布局仅需修改此文件
+│
+├── usb_cdc.h / usb_cdc.c   【USBD 虚拟串口驱动与重定向】
+│                           - 对接官方成熟的 USBD 硬件控制器与端点状态机
+│                           - 环形缓冲数据收发、printf 透明重定向、待机拔上拉低功耗隔离
+│
+├── gunlight.h / gunlight.c 【枪灯业务状态机与 CLI 调参引擎】
+│                           - 工作模式循环 (0~5)、电池放电阶梯降额 (LVP)、10s 自动休眠倒计时
+│                           - 内置高效 CLI 命令解析引擎，响应上位机调参指令
+│
+└── main.c                  【系统主入口与调度】
+                            - 96MHz HSI 时钟初始化、上电自检、8s 长按 ISP 判定、10ms 主调度循环
+```
+- **精简成效**：彻底删除了过去分散的 12 个冗余中间文件，代码内聚性大幅提升，Flash 占用优化，编译 0 errors, 0 warnings。
+
+
 
 

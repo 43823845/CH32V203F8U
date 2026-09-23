@@ -5,12 +5,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../User/bsp_adc.c \
-../User/bsp_cli.c \
-../User/bsp_isp.c \
-../User/bsp_key.c \
-../User/bsp_led.c \
-../User/bsp_pwm.c \
+../User/bsp.c \
 ../User/ch32v20x_it.c \
 ../User/gunlight.c \
 ../User/main.c \
@@ -30,12 +25,7 @@ C_SRCS += \
 ../User/USBLIB/CONFIG/usb_pwr.c 
 
 C_DEPS += \
-./User/bsp_adc.d \
-./User/bsp_cli.d \
-./User/bsp_isp.d \
-./User/bsp_key.d \
-./User/bsp_led.d \
-./User/bsp_pwm.d \
+./User/bsp.d \
 ./User/ch32v20x_it.d \
 ./User/gunlight.d \
 ./User/main.d \
@@ -55,12 +45,7 @@ C_DEPS += \
 ./User/usb_pwr.d 
 
 OBJS += \
-./User/bsp_adc.o \
-./User/bsp_cli.o \
-./User/bsp_isp.o \
-./User/bsp_key.o \
-./User/bsp_led.o \
-./User/bsp_pwm.o \
+./User/bsp.o \
 ./User/ch32v20x_it.o \
 ./User/gunlight.o \
 ./User/main.o \
