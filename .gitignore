@@ -10,3 +10,8 @@ __pycache__/
 
 # MRS local cache
 .mrs/
+
+# Tauri & Host Build Artifacts
+gunlight-host/src-tauri/target/
+gunlight-host/node_modules/
+

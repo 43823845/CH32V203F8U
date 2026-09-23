@@ -4,9 +4,11 @@
 #include "bsp_adc.h"
 #include "bsp_led.h"
 #include "bsp_isp.h"
+#include "usb_cdc.h"
+#include "bsp_cli.h"
 #include "debug.h"
 
-#define STANDBY_TIMEOUT_TICKS   1000    // 10秒无操作超时 (1000 * 10ms = 10s) 进入 Standby
+static uint16_t s_standby_timeout_ticks = 1000; // 默认 10秒无操作超时 (1000 * 10ms = 10s) 进入 Standby
 #define STROBE_PERIOD_TICKS     5       // 50ms 翻转一次 (10Hz 爆闪)
 #define ADC_SAMPLE_PERIOD_TICKS 20      // 200ms 采样一次电压
 
@@ -34,6 +36,10 @@ static const struct {
 
 static Gunlight_State_e s_gl_state = GL_STATE_OFF;
 static Battery_Tier_e   s_bat_tier = BAT_TIER_NORMAL;
+static uint16_t s_cur_vbat = 3800;
+static uint16_t s_cur_pwm1 = 0;
+static uint16_t s_cur_pwm2 = 0;
+
 static uint16_t s_standby_timer = 0;
 static uint16_t s_strobe_timer = 0;
 static uint8_t  s_strobe_flag = 0;
@@ -46,6 +52,14 @@ static uint8_t  s_cutoff_confirm = 0;    // 截止保护防误判连续计数
 static void Gunlight_Apply_PWM(void);
 static void Gunlight_Update_Battery_Status(void);
 
+static void Gunlight_SetPWM_Internal(uint16_t p1, uint16_t p2)
+{
+    s_cur_pwm1 = p1;
+    s_cur_pwm2 = p2;
+    BSP_PWM_SetDuty_PWM1(p1);
+    BSP_PWM_SetDuty_PWM2(p2);
+}
+
 /**
  * @brief 根据当前枪灯状态与电池放电阶梯等级综合更新 PWM 输出
  */
@@ -56,28 +70,26 @@ static void Gunlight_Apply_PWM(void)
         // 备用战术按键按住：若在极低电量下限制为 25%，正常情况下 100% 满功率
         if (s_bat_tier == BAT_TIER_CRITICAL)
         {
-            BSP_PWM_SetDuty_PWM1(250);
+            Gunlight_SetPWM_Internal(250, 0);
         }
         else
         {
-            BSP_PWM_SetDuty_PWM1(1000);
+            Gunlight_SetPWM_Internal(1000, 0);
         }
-        BSP_PWM_SetDuty_PWM2(0);
         return;
     }
 
     // 关灯状态
     if (s_gl_state == GL_STATE_OFF)
     {
-        BSP_PWM_AllOff();
+        Gunlight_SetPWM_Internal(0, 0);
         return;
     }
 
     // 【保命微光档强制接管】当电池极度亏电 (2.95V ~ 3.1V) 时，强制 5% 月光微光，副灯关闭
     if (s_bat_tier == BAT_TIER_CRITICAL)
     {
-        BSP_PWM_SetDuty_PWM1(50); // 5% 超低功耗月光照路
-        BSP_PWM_SetDuty_PWM2(0);
+        Gunlight_SetPWM_Internal(50, 0); // 5% 超低功耗月光照路
         return;
     }
 
@@ -87,32 +99,28 @@ static void Gunlight_Apply_PWM(void)
             // 模式 1: 低电节能限流钳位为 25%，正常电量输出 100%
             if (s_bat_tier == BAT_TIER_LOW)
             {
-                BSP_PWM_SetDuty_PWM1(250); // 25% 节能限流防跳水
+                Gunlight_SetPWM_Internal(250, 0); // 25% 节能限流防跳水
             }
             else
             {
-                BSP_PWM_SetDuty_PWM1(1000); // 100% 满功率
+                Gunlight_SetPWM_Internal(1000, 0); // 100% 满功率
             }
-            BSP_PWM_SetDuty_PWM2(0);
             break;
 
         case GL_STATE_MODE2_25:
             // 模式 2: 主灯 25%
-            BSP_PWM_SetDuty_PWM1(250);
-            BSP_PWM_SetDuty_PWM2(0);
+            Gunlight_SetPWM_Internal(250, 0);
             break;
 
         case GL_STATE_MODE3_DUAL:
             // 模式 3: 主灯 (3535 WLED) + 副灯 (650nm ~3mW 瞄准激光二极管) 同时亮
             if (s_bat_tier == BAT_TIER_LOW)
             {
-                BSP_PWM_SetDuty_PWM1(250);   // 主灯降额 25% 节能延长续航
-                BSP_PWM_SetDuty_PWM2(1000);  // 激光器功耗仅 ~44mW，保持 100% 满额常亮以确保战术瞄准光斑清晰
+                Gunlight_SetPWM_Internal(250, 1000);   // 主灯降额 25% 节能延长续航
             }
             else
             {
-                BSP_PWM_SetDuty_PWM1(1000);  // 主灯 100% 满功率照明 (500LX-1000LX)
-                BSP_PWM_SetDuty_PWM2(1000);  // 激光二极管 100% 满额常亮 (~3mW 红光准星)
+                Gunlight_SetPWM_Internal(1000, 1000);  // 主灯 100% 满功率照明 (500LX-1000LX), 激光 100%
             }
             break;
 
@@ -121,13 +129,12 @@ static void Gunlight_Apply_PWM(void)
             if (s_strobe_flag)
             {
                 uint16_t duty = (s_bat_tier == BAT_TIER_LOW) ? 350 : 1000;
-                BSP_PWM_SetDuty_PWM1(duty);
+                Gunlight_SetPWM_Internal(duty, 0);
             }
             else
             {
-                BSP_PWM_SetDuty_PWM1(0);
+                Gunlight_SetPWM_Internal(0, 0);
             }
-            BSP_PWM_SetDuty_PWM2(0);
             break;
 
         case GL_STATE_SOS:
@@ -135,17 +142,16 @@ static void Gunlight_Apply_PWM(void)
             if (c_sos_seq[s_sos_step].on)
             {
                 uint16_t duty = (s_bat_tier == BAT_TIER_LOW) ? 350 : 1000;
-                BSP_PWM_SetDuty_PWM1(duty);
-                BSP_PWM_SetDuty_PWM2(0);
+                Gunlight_SetPWM_Internal(duty, 0);
             }
             else
             {
-                BSP_PWM_AllOff();
+                Gunlight_SetPWM_Internal(0, 0);
             }
             break;
 
         default:
-            BSP_PWM_AllOff();
+            Gunlight_SetPWM_Internal(0, 0);
             break;
     }
 }
@@ -156,6 +162,7 @@ static void Gunlight_Apply_PWM(void)
 static void Gunlight_Update_Battery_Status(void)
 {
     uint16_t vbat = BSP_ADC_GetBatteryVoltage_mV();
+    s_cur_vbat = vbat;
 
     // 1. 低电量截止保护 (< 2950mV，连续确认2次防瞬态浪涌干扰)
     if (vbat < 2950)
@@ -231,6 +238,9 @@ static void Gunlight_Update_Battery_Status(void)
 void Gunlight_Enter_LowPower_Standby(void)
 {
     PRINT("[PWR] Entering Low-Power Standby Mode...\r\n");
+
+    // 0. 彻底断开 USB 虚拟串口控制器与 DP 上拉，消除毫安级漏电
+    USB_CDC_DeInit();
 
     // 1. 关闭所有 PWM 输出
     BSP_PWM_AllOff();
@@ -453,11 +463,11 @@ void Gunlight_Process_10ms(void)
         }
     }
 
-    // 6. 灭灯关闭状态下的 10 秒无操作关机休眠倒计时
+    // 6. 灭灯关闭状态下的无操作关机休眠倒计时
     if (s_gl_state == GL_STATE_OFF && !s_tactical_override)
     {
         s_standby_timer++;
-        if (s_standby_timer >= STANDBY_TIMEOUT_TICKS)
+        if (s_standby_timer >= s_standby_timeout_ticks)
         {
             Gunlight_Enter_LowPower_Standby();
         }
@@ -465,6 +475,9 @@ void Gunlight_Process_10ms(void)
 
     // 7. 处理 RGB 指示灯动画时钟
     BSP_StatusLED_Process_10ms();
+
+    // 8. 处理 USB 虚拟串口 CLI 调参及命令解析
+    BSP_CLI_Process();
 }
 
 /**
@@ -478,4 +491,57 @@ void Gunlight_TurnOn_Mode1(void)
     Gunlight_Update_Battery_Status();
     Gunlight_Apply_PWM();
     PRINT("[GUNLIGHT] Turned On -> Mode 1\r\n");
+}
+
+Gunlight_State_e Gunlight_GetState(void)
+{
+    return s_gl_state;
+}
+
+void Gunlight_SetState(Gunlight_State_e state)
+{
+    s_gl_state = state;
+    s_standby_timer = 0;
+    if (state == GL_STATE_OFF)
+    {
+        Gunlight_SetPWM_Internal(0, 0);
+        BSP_StatusLED_AllOff();
+        BSP_ADC_DeInit();
+    }
+    else
+    {
+        BSP_ADC_Init();
+        Gunlight_Update_Battery_Status();
+        Gunlight_Apply_PWM();
+    }
+}
+
+uint16_t Gunlight_GetBatteryVoltage_mV(void)
+{
+    return s_cur_vbat;
+}
+
+uint8_t Gunlight_GetBatteryTier(void)
+{
+    return (uint8_t)s_bat_tier;
+}
+
+uint16_t Gunlight_GetStandbyTimeoutSec(void)
+{
+    return s_standby_timeout_ticks / 100;
+}
+
+void Gunlight_SetStandbyTimeoutSec(uint16_t sec)
+{
+    s_standby_timeout_ticks = sec * 100;
+}
+
+uint16_t Gunlight_GetPwm1Duty(void)
+{
+    return s_cur_pwm1;
+}
+
+uint16_t Gunlight_GetPwm2Duty(void)
+{
+    return s_cur_pwm2;
 }

@@ -1,0 +1,21 @@
+[package]
+name = "gunlight-host"
+version = "1.0.0"
+description = "CH32V203 Tactical Gunlight Host Controller"
+authors = ["Weapon Systems Lab"]
+edition = "2021"
+
+[lib]
+name = "gunlight_host_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serialport = "4.7.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+parking_lot = "0.12"
+crossbeam-channel = "0.5"

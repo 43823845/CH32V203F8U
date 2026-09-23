@@ -1,4 +1,4 @@
-﻿# CH32V203F8U6 战术下挂枪灯 (Weapon Mounted Light - WML) 方案设计
+# CH32V203F8U6 战术下挂枪灯 (Weapon Mounted Light - WML) 方案设计
 
 本项目为一款超紧凑、极低待机功耗、免专用下载器的战术下挂枪灯主控系统。主控采用南京沁恒 (WCH) 官方 32 位 RISC-V 微控制器 **CH32V203F8U6 (QFN20 3×3mm 封装，Datasheet V3.0 权威校准版)**。
 
@@ -302,5 +302,62 @@
 ### 5.4 电池分压采样电阻：470kΩ + 470kΩ 超大阻抗
 * **抑制待机漏电**：传统分压网络若使用 10kΩ + 10kΩ，在电池端会形成常闭回路产生 $4.2\text{V} / 20\text{k}\Omega = 210\text{µA}$ 的恒定漏电，手电关机数月就会把电池放空；
 * **微安级设计**：改用 470kΩ + 470kΩ 后，静态漏电流仅 $4.2\text{V} / 940\text{k}\Omega \approx 4.46\text{µA}$，配合 C9 (100nF) 吸收采样瞬态电荷，兼顾了超高采样精度与极致长效待机。
+
+---
+
+## 6. USB 虚拟串口 (CDC ACM) 调试与调参协议
+
+枪灯通过板载 Type-C 接口直接引出 CH32V203F8U6 的硬件全速 USB 控制器引脚（**PA12: USB_DP**, **PA11: USB_DM**），板载免除任何 CH340/FT232 等专用 USB 转串口芯片，即可实现标准 USB CDC ACM 虚拟串口通信。
+
+### 6.1 核心特性
+1. **即插即用免驱**：枚举为标准 USB CDC ACM 虚拟串口（VID: `0x1A86`，PID: `0xFE0C`），Windows 10/11、macOS、Linux 均免驱动识别；
+2. **免外置晶振 (96MHz HSI)**：芯片内核与外设由内部 8MHz HSI 倍频至 96MHz，为 USBFS 提供标准 48MHz 时钟，为 20kHz 硬件 PWM 提供无损整除分频；
+3. **`printf` 双路透明重定向**：固件中的 `printf()` 会同时通过物理串口 PA9 (UART1_TX) 与 USB CDC 虚拟串口输出；插上线即刻打印实时日志；
+4. **低功耗安全隔离**：在进入 Standby 深度休眠时，固件自动调用 `USB_CDC_DeInit()`，彻底断开 USB 内部 1.5kΩ 上拉电阻并关闭外设时钟，杜绝休眠漏电。
+
+### 6.2 文本调参 CLI 命令集
+
+通过任意串口助手或上位机（波特率 115200，发送带 `\r\n`）均可交互调参：
+
+| 命令 | 参数格式 | 功能描述 | 返回示例 |
+| :--- | :--- | :--- | :--- |
+| `STATUS` | 无 | 获取枪灯当前完整状态（电压、阶梯、模式、PWM、超时时间） | `[STATUS] State: 1, Vbat: 3850 mV, BatTier: 0, PWM1: 1000/1000, PWM2: 0/1000, Timeout: 10s` |
+| `SET PWM1` | `<0-1000>` | 手动设定主灯 (3535 WLED) PWM 占空比千分比 | `[OK] Set PWM1 = 500/1000 (50.0%)` |
+| `SET PWM2` | `<0-1000>` | 手动设定副灯 (650nm 红激光) PWM 占空比千分比 | `[OK] Set PWM2 = 1000/1000 (100.0%)` |
+| `SET MODE` | `<0-5>` | 切换工作模式 (0:关灯, 1:强光, 2:节能, 3:双开, 4:爆闪, 5:SOS) | `[OK] Mode switched to 3` |
+| `SET TIMEOUT` | `<sec>` | 设置无操作关机休眠超时时间（单位：秒，1~120s） | `[OK] Set Standby Timeout = 15s` |
+| `ISP` | 无 | **免按键直接跳转原厂 Bootloader** 进入 USB 刷机模式 | `[SYS] Jump to Bootloader...` |
+| `REBOOT` | 无 | 触发 NVIC 系统软复位 | `[SYS] Rebooting...` |
+| `HELP` | 无 | 打印 CLI 支持的指令帮助清单 | `Available Commands: ...` |
+
+---
+
+## 7. Tauri 2 桌面端上位机系统 (Tactical WML HUD)
+
+项目附带专用的跨平台桌面端上位机软件（位于 `gunlight-host/` 目录），基于现代 **Tauri 2 + Rust + 高性能原生前端** 构建，为枪灯提供沉浸式战术仪表盘。
+
+### 7.1 上位机核心功能
+- **智能串口连接**：自动扫描系统可用 COM 端口，自动识别并高亮标注 `[战术枪灯]` (WCH CDC 0x1A86/0xFE0C)；
+- **实时遥测仪表 (Telemetry)**：
+  - 电池电压柱状图与实时毫伏读数（动态计算电量百分比）；
+  - 电池放电健康阶梯显示（满血 / 节能限流 / 保命微光 / 截止保护）；
+  - PWM1 与 PWM2 实际功率表盘（千分比与百分比）；
+- **战术模式快捷切换矩阵**：支持一键切换全关、100%强光、25%微光、双灯并开、10Hz爆闪与SOS求救；
+- **无级参数调节 (Fine Tuning)**：双路 PWM (0~1000‰) 独立无级调光滑块，实时拖动即时响应；
+- **一键免按键 ISP 刷机**：点击按钮直接让枪灯平滑进入 Bootloader，配合 WCHISPTool 或 py-ch32v-isp 刷写新固件；
+- **实时控制台终端 (Console)**：实时抓取并展示单片机 `printf` 调试日志，支持任意自定义指令下发。
+
+### 7.2 运行与启动方式
+1. **直接启动已编译好的可执行程序**：
+   - 双击运行 `gunlight-host/启动上位机.bat`，或直接执行 `gunlight-host/src-tauri/target/debug/gunlight-host.exe`。
+2. **源码构建/开发**：
+   ```bash
+   cd gunlight-host
+   # 启动开发调试
+   npx @tauri-apps/cli dev
+   # 或直接用 cargo
+   cargo run --manifest-path src-tauri/Cargo.toml
+   ```
+
 
 

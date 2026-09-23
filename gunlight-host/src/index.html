@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CH32V203 战术枪灯上位机系统 (Tactical WML HUD)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="hud-container">
+    <!-- 顶部状态与连接控制栏 -->
+    <header class="hud-header">
+      <div class="hud-brand">
+        <div class="brand-radar"></div>
+        <div class="brand-title">
+          <h1>TACTICAL WML HUD</h1>
+          <span class="sub">CH32V203F8U6 WEAPON-MOUNTED LIGHT // VCP CONTROLLER</span>
+        </div>
+      </div>
+
+      <div class="conn-bar">
+        <div class="conn-item">
+          <label for="port-select">PORT</label>
+          <select id="port-select">
+            <option value="">正在检测串口...</option>
+          </select>
+          <button id="btn-refresh" class="btn btn-secondary" title="刷新可用串口">🔄</button>
+        </div>
+
+        <div class="conn-item">
+          <label for="baud-select">BAUD</label>
+          <select id="baud-select">
+            <option value="115200" selected>115200 (Default)</option>
+            <option value="9600">9600</option>
+            <option value="57600">57600</option>
+            <option value="460800">460800</option>
+            <option value="921600">921600</option>
+          </select>
+        </div>
+
+        <button id="btn-connect" class="btn btn-primary">CONNECT</button>
+        <div class="conn-status" id="conn-indicator">
+          <span class="dot"></span>
+          <span class="text">DISCONNECTED</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 中间主视图 -->
+    <main class="hud-body">
+      <!-- 左栏: 遥测与模式控制 -->
+      <section class="panel-column left-col">
+        <!-- 实时遥测 Telemetry -->
+        <div class="hud-card card-telemetry">
+          <div class="card-header">
+            <span class="icon">📊</span>
+            <h2>REAL-TIME TELEMETRY (实时遥测)</h2>
+            <button id="btn-query-status" class="btn-text-action">QUERY</button>
+          </div>
+          <div class="card-content">
+            <div class="telemetry-grid">
+              <div class="tele-box battery-box">
+                <div class="tele-label">BATTERY VOLTAGE</div>
+                <div class="tele-value" id="val-vbat">-- <span class="unit">mV</span></div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill" id="bar-vbat" style="width: 0%;"></div>
+                </div>
+                <div class="tele-sub" id="val-bat-tier">等级: 未同步</div>
+              </div>
+
+              <div class="tele-box mode-box">
+                <div class="tele-label">SYSTEM STATE</div>
+                <div class="tele-badge" id="badge-mode">STANDBY / OFF</div>
+                <div class="tele-sub" id="val-timeout">休眠倒计时: 10s</div>
+              </div>
+
+              <div class="tele-box pwm-box">
+                <div class="tele-label">PWM1: 3535 WLED (主灯)</div>
+                <div class="tele-value pwm-val" id="val-pwm1">0 <span class="unit">‰ (0%)</span></div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill fill-amber" id="bar-pwm1" style="width: 0%;"></div>
+                </div>
+                <div class="tele-sub">20kHz / TPS92201 / 500-1000LX</div>
+              </div>
+
+              <div class="tele-box pwm-box">
+                <div class="tele-label">PWM2: 650nm LASER (副灯)</div>
+                <div class="tele-value pwm-val" id="val-pwm2">0 <span class="unit">‰ (0%)</span></div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill fill-red" id="bar-pwm2" style="width: 0%;"></div>
+                </div>
+                <div class="tele-sub">20kHz / 3mW 红光准星</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 战术模式快速指令 -->
+        <div class="hud-card card-modes">
+          <div class="card-header">
+            <span class="icon">🎯</span>
+            <h2>TACTICAL MODES (模式切换)</h2>
+          </div>
+          <div class="card-content">
+            <div class="mode-buttons-grid">
+              <button class="btn btn-mode" data-mode="0">
+                <div class="mode-id">MODE 0</div>
+                <div class="mode-name">ALL OFF</div>
+                <div class="mode-desc">全熄关灯 (进入休眠倒数)</div>
+              </button>
+              <button class="btn btn-mode" data-mode="1">
+                <div class="mode-id">MODE 1</div>
+                <div class="mode-name">HIGH LIGHT (100%)</div>
+                <div class="mode-desc">主灯 100% 满功率强光照亮</div>
+              </button>
+              <button class="btn btn-mode" data-mode="2">
+                <div class="mode-id">MODE 2</div>
+                <div class="mode-name">LOW POWER (25%)</div>
+                <div class="mode-desc">主灯 25% 节能微光续航</div>
+              </button>
+              <button class="btn btn-mode" data-mode="3">
+                <div class="mode-id">MODE 3</div>
+                <div class="mode-name">DUAL ILLUM + LASER</div>
+                <div class="mode-desc">主灯 + 650nm 瞄准激光双开</div>
+              </button>
+              <button class="btn btn-mode btn-mode-special" data-mode="4">
+                <div class="mode-id">SPECIAL 4</div>
+                <div class="mode-name">10Hz STROBE</div>
+                <div class="mode-desc">战术爆闪压制模式</div>
+              </button>
+              <button class="btn btn-mode btn-mode-special" data-mode="5">
+                <div class="mode-id">SPECIAL 5</div>
+                <div class="mode-name">SOS DISTRESS</div>
+                <div class="mode-desc">莫尔斯三短三长三短求救</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右栏: 无级调参、固件烧录与终端日志 -->
+      <section class="panel-column right-col">
+        <!-- 无级调参滑块 -->
+        <div class="hud-card card-tuning">
+          <div class="card-header">
+            <span class="icon">🎛️</span>
+            <h2>FINE TUNING (无级参数调节)</h2>
+          </div>
+          <div class="card-content">
+            <div class="slider-group">
+              <div class="slider-header">
+                <label for="slider-pwm1">PWM1 主灯亮度 (0 ~ 1000 ‰)</label>
+                <span class="slider-val" id="text-slider-pwm1">0 ‰</span>
+              </div>
+              <input type="range" id="slider-pwm1" min="0" max="1000" step="10" value="0" />
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <label for="slider-pwm2">PWM2 激光功率 (0 ~ 1000 ‰)</label>
+                <span class="slider-val" id="text-slider-pwm2">0 ‰</span>
+              </div>
+              <input type="range" id="slider-pwm2" min="0" max="1000" step="10" value="0" />
+            </div>
+
+            <div class="slider-group inline-group">
+              <label for="input-timeout">待机休眠超时设定 (秒):</label>
+              <input type="number" id="input-timeout" min="1" max="120" value="10" />
+              <button id="btn-set-timeout" class="btn btn-secondary">APPLY TIMEOUT</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 维护与一键 ISP 烧录 -->
+        <div class="hud-card card-isp">
+          <div class="card-header">
+            <span class="icon">⚡</span>
+            <h2>FIRMWARE & MAINTENANCE (固件与免按键刷机)</h2>
+          </div>
+          <div class="card-content">
+            <div class="isp-actions">
+              <div class="isp-desc">
+                无需拆壳与按压硬件按键，直接通过 USB 发送指令平滑跳转原厂 Bootloader：
+              </div>
+              <div class="isp-btn-row">
+                <button id="btn-isp" class="btn btn-danger">⚡ JUMP TO ISP BOOTLOADER</button>
+                <button id="btn-reboot" class="btn btn-warning">🔄 REBOOT MCU</button>
+                <button id="btn-help" class="btn btn-secondary">❓ CLI HELP</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 终端日志与命令行输出 -->
+        <div class="hud-card card-terminal">
+          <div class="card-header">
+            <span class="icon">💻</span>
+            <h2>LIVE DEBUG CONSOLE (实时虚拟串口终端)</h2>
+            <div class="term-tools">
+              <label><input type="checkbox" id="chk-autoscroll" checked /> 自动滚屏</label>
+              <button id="btn-clear-term" class="btn-text-action">CLEAR</button>
+            </div>
+          </div>
+          <div class="card-content">
+            <div class="terminal-screen" id="term-screen">
+              <div class="log-line sys-line">[HOST] Tactical Gunlight HUD Initialized. Waiting for connection...</div>
+            </div>
+            <div class="terminal-input-bar">
+              <span class="term-prompt">&gt;</span>
+              <input type="text" id="term-input" placeholder="输入 CLI 指令 (如 STATUS, SET PWM1 500, HELP)..." />
+              <button id="btn-send-cmd" class="btn btn-primary">SEND</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

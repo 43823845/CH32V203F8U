@@ -11,6 +11,7 @@
  * microcontroller manufactured by Nanjing Qinheng Microelectronics.
  *******************************************************************************/
 #include "debug.h"
+#include "usb_cdc.h"
 
 static uint8_t  p_us = 0;
 static uint16_t p_ms = 0;
@@ -172,6 +173,7 @@ void SDI_Printf_Enable(void)
 __attribute__((used))
 int _write(int fd, char *buf, int size)
 {
+    const uint8_t *orig_buf = (const uint8_t *)buf;
     int i = 0;
 #if (SDI_PRINT == SDI_PR_OPEN)
     int writeSize = size;
@@ -235,6 +237,10 @@ int _write(int fd, char *buf, int size)
 #endif
     }
 #endif
+
+    /* 同步通过 USB 虚拟串口 (CDC ACM) 输出调试信息，插上 Type-C 即插即看 */
+    USB_CDC_SendBytes(orig_buf, size);
+
     return size;
 }
 

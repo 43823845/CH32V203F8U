@@ -12,9 +12,18 @@ typedef enum {
     GL_STATE_SOS               // 三击: SOS 救援模式 (三短 三长 三短)
 } Gunlight_State_e;
 
-void Gunlight_Init(void);
-void Gunlight_Process_10ms(void);
-void Gunlight_Enter_LowPower_Standby(void);
-void Gunlight_TurnOn_Mode1(void);
+void             Gunlight_Init(void);
+void             Gunlight_Process_10ms(void);
+void             Gunlight_Enter_LowPower_Standby(void);
+void             Gunlight_TurnOn_Mode1(void);
+
+Gunlight_State_e Gunlight_GetState(void);
+void             Gunlight_SetState(Gunlight_State_e state);
+uint16_t         Gunlight_GetBatteryVoltage_mV(void);
+uint8_t          Gunlight_GetBatteryTier(void);
+uint16_t         Gunlight_GetStandbyTimeoutSec(void);
+void             Gunlight_SetStandbyTimeoutSec(uint16_t sec);
+uint16_t         Gunlight_GetPwm1Duty(void);
+uint16_t         Gunlight_GetPwm2Duty(void);
 
 #endif /* __GUNLIGHT_H */
