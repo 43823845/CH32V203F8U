@@ -1,4 +1,5 @@
 // Tactical WML HUD - Frontend Logic for Tauri 2
+// 支持真实硬件 USB 虚拟串口通信 与 内置虚拟仿真自测模式
 
 const invoke = window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 const event = window.__TAURI__ ? window.__TAURI__.event : null;
@@ -39,8 +40,19 @@ const btnClearTerm = document.getElementById("btn-clear-term");
 const chkAutoscroll = document.getElementById("chk-autoscroll");
 
 let isConnected = false;
+let isSimulationMode = false;
 let rxLineBuffer = "";
 let statusPollInterval = null;
+
+// 虚拟仿真测试状态
+let simState = {
+  state: 1,
+  vbat: 3840,
+  batTier: 0,
+  pwm1: 1000,
+  pwm2: 0,
+  timeout: 10
+};
 
 // 日志输出辅助
 function logToTerminal(text, type = "rx-line") {
@@ -56,55 +68,58 @@ function logToTerminal(text, type = "rx-line") {
 
 // 刷新串口列表
 async function refreshPorts() {
-  if (!invoke) {
-    logToTerminal("[WARN] Tauri invoke API unavailable. Running in browser mode?", "err-line");
-    return;
-  }
+  portSelect.innerHTML = "";
 
-  try {
-    const ports = await invoke("list_ports");
-    portSelect.innerHTML = "";
+  // 1. 始终提供一个虚拟仿真自测设备选项，供无硬件自测与UI验证
+  const simOpt = document.createElement("option");
+  simOpt.value = "__SIMULATOR__";
+  simOpt.textContent = "🎮 [虚拟仿真设备] Tactical Gunlight Simulator";
+  portSelect.appendChild(simOpt);
 
-    if (ports.length === 0) {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "未发现可用串口";
-      portSelect.appendChild(opt);
-      return;
+  let realPortCount = 0;
+  let targetSelectIndex = 0;
+
+  if (invoke) {
+    try {
+      const ports = await invoke("list_ports");
+      ports.forEach((p) => {
+        realPortCount++;
+        const opt = document.createElement("option");
+        opt.value = p.port_name;
+        opt.textContent = p.description;
+
+        // 自动优先选中 WCH CDC 枪灯设备 (VID: 0x1A86, PID: 0xFE0C)
+        if (p.vid === 0x1a86 || (p.product && p.product.includes("WML")) || (p.product && p.product.includes("CDC"))) {
+          opt.textContent += " ⭐ [战术枪灯已识别]";
+          targetSelectIndex = portSelect.options.length;
+        }
+        portSelect.appendChild(opt);
+      });
+    } catch (err) {
+      logToTerminal(`[ERR] 扫描物理串口异常: ${err}`, "err-line");
     }
-
-    let defaultSelectIndex = 0;
-    ports.forEach((p, idx) => {
-      const opt = document.createElement("option");
-      opt.value = p.port_name;
-      opt.textContent = p.description;
-
-      // 自动优先匹配 WCH CDC 枪灯设备 (VID: 0x1A86, PID: 0xFE0C)
-      if (p.vid === 0x1a86 || (p.product && p.product.includes("WML"))) {
-        opt.textContent += " ⭐ [战术枪灯]";
-        defaultSelectIndex = idx;
-      }
-      portSelect.appendChild(opt);
-    });
-
-    portSelect.selectedIndex = defaultSelectIndex;
-  } catch (err) {
-    logToTerminal(`[ERR] 扫描串口失败: ${err}`, "err-line");
   }
+
+  // 若扫描到了真实枪灯，默认选中真实枪灯；否则默认选中虚拟仿真器
+  portSelect.selectedIndex = targetSelectIndex;
 }
 
 // 连接/断开串口
 async function toggleConnection() {
-  if (!invoke) return;
-
   if (isConnected) {
     // 断开连接
-    try {
-      await invoke("close_port");
+    if (isSimulationMode) {
+      isSimulationMode = false;
       setConnectedState(false);
-      logToTerminal("[SYS] 串口已主动断开", "sys-line");
-    } catch (err) {
-      logToTerminal(`[ERR] 关闭串口失败: ${err}`, "err-line");
+      logToTerminal("[SYS] 虚拟仿真设备已断开连接", "sys-line");
+    } else if (invoke) {
+      try {
+        await invoke("close_port");
+        setConnectedState(false);
+        logToTerminal("[SYS] 物理串口已主动断开", "sys-line");
+      } catch (err) {
+        logToTerminal(`[ERR] 关闭串口失败: ${err}`, "err-line");
+      }
     }
   } else {
     // 建立连接
@@ -112,7 +127,24 @@ async function toggleConnection() {
     const baudRate = parseInt(baudSelect.value, 10);
 
     if (!portName) {
-      alert("请选择有效的串口！");
+      alert("请选择有效的设备或仿真模式！");
+      return;
+    }
+
+    if (portName === "__SIMULATOR__") {
+      // 启动虚拟仿真自测
+      isSimulationMode = true;
+      setConnectedState(true);
+      logToTerminal("[SYS] 已连接至【虚拟仿真设备】。所有指令、遥测与UI控件均可直接脱机测试验证！", "sys-line");
+      setTimeout(() => {
+        handleSimCommand("STATUS");
+      }, 100);
+      return;
+    }
+
+    // 真实硬件串口
+    if (!invoke) {
+      alert("当前处于浏览器开发环境，请选择【虚拟仿真设备】进行功能自测！");
       return;
     }
 
@@ -120,16 +152,16 @@ async function toggleConnection() {
       btnConnect.disabled = true;
       btnConnect.textContent = "CONNECTING...";
       await invoke("open_port", { portName, baudRate });
+      isSimulationMode = false;
       setConnectedState(true);
-      logToTerminal(`[SYS] 成功连接至串口: ${portName} @ ${baudRate} bps`, "sys-line");
+      logToTerminal(`[SYS] 成功连接至物理串口: ${portName} @ ${baudRate} bps`, "sys-line");
 
-      // 连接成功后自动发送一次 STATUS 指令同步仪表盘
       setTimeout(() => {
         sendCommand("STATUS");
       }, 300);
     } catch (err) {
-      logToTerminal(`[ERR] 打开串口失败: ${err}`, "err-line");
-      alert(`无法连接串口: ${err}`);
+      logToTerminal(`[ERR] 打开物理串口失败: ${err}`, "err-line");
+      alert(`无法连接物理串口: ${err}`);
       setConnectedState(false);
     } finally {
       btnConnect.disabled = false;
@@ -143,11 +175,11 @@ function setConnectedState(connected) {
     btnConnect.textContent = "DISCONNECT";
     btnConnect.className = "btn btn-danger";
     connIndicator.className = "conn-status connected";
-    connIndicator.querySelector(".text").textContent = "CONNECTED";
+    connIndicator.querySelector(".text").textContent = isSimulationMode ? "SIMULATOR ACTIVE" : "CONNECTED";
     portSelect.disabled = true;
     baudSelect.disabled = true;
 
-    // 开启周期性状态同步 (每 3 秒查询一次 STATUS)
+    // 开启周期性状态同步 (每 3 秒同步一次 STATUS)
     if (!statusPollInterval) {
       statusPollInterval = setInterval(() => {
         if (isConnected) {
@@ -170,20 +202,93 @@ function setConnectedState(connected) {
   }
 }
 
+// 模拟固件响应执行器 (用于无硬件自测)
+function handleSimCommand(cmd) {
+  const c = cmd.trim();
+  const upper = c.toUpperCase();
+
+  if (upper === "STATUS") {
+    // 模拟轻微电压波动 (3820 ~ 3850 mV)
+    simState.vbat = 3800 + Math.floor(Math.random() * 50);
+    const resp = `[STATUS] State: ${simState.state}, Vbat: ${simState.vbat} mV, BatTier: ${simState.batTier}, PWM1: ${simState.pwm1}/1000, PWM2: ${simState.pwm2}/1000, Timeout: ${simState.timeout}s`;
+    handleFirmwareLine(resp);
+  } else if (upper.startsWith("SET PWM1 ")) {
+    const val = Math.max(0, Math.min(1000, parseInt(c.substring(9), 10) || 0));
+    simState.pwm1 = val;
+    handleFirmwareLine(`[OK] Set PWM1 = ${val}/1000 (${(val / 10).toFixed(1)}%)`);
+    handleSimCommand("STATUS");
+  } else if (upper.startsWith("SET PWM2 ")) {
+    const val = Math.max(0, Math.min(1000, parseInt(c.substring(9), 10) || 0));
+    simState.pwm2 = val;
+    handleFirmwareLine(`[OK] Set PWM2 = ${val}/1000 (${(val / 10).toFixed(1)}%)`);
+    handleSimCommand("STATUS");
+  } else if (upper.startsWith("SET MODE ")) {
+    const mode = parseInt(c.substring(9), 10);
+    if (mode >= 0 && mode <= 5) {
+      simState.state = mode;
+      if (mode === 0) { simState.pwm1 = 0; simState.pwm2 = 0; }
+      else if (mode === 1) { simState.pwm1 = 1000; simState.pwm2 = 0; }
+      else if (mode === 2) { simState.pwm1 = 250; simState.pwm2 = 0; }
+      else if (mode === 3) { simState.pwm1 = 1000; simState.pwm2 = 1000; }
+      else if (mode === 4) { simState.pwm1 = 1000; simState.pwm2 = 0; }
+      else if (mode === 5) { simState.pwm1 = 1000; simState.pwm2 = 0; }
+      handleFirmwareLine(`[OK] Mode switched to ${mode}`);
+      handleSimCommand("STATUS");
+    } else {
+      handleFirmwareLine("[ERR] Invalid mode 0-5");
+    }
+  } else if (upper.startsWith("SET TIMEOUT ")) {
+    const sec = parseInt(c.substring(12), 10) || 10;
+    if (sec >= 1 && sec <= 120) {
+      simState.timeout = sec;
+      handleFirmwareLine(`[OK] Set Standby Timeout = ${sec}s`);
+    } else {
+      handleFirmwareLine("[ERR] Timeout range: 1~120s");
+    }
+  } else if (upper === "ISP") {
+    handleFirmwareLine("[SYS] Jump to Bootloader requested via USB...");
+    handleFirmwareLine("[SYS] Device disconnected and entering ISP mode.");
+  } else if (upper === "REBOOT") {
+    handleFirmwareLine("[SYS] Rebooting MCU...");
+    setTimeout(() => {
+      handleFirmwareLine("[SYS] Boot: CH32V203 Tactical Gunlight V3.0 Ready.");
+    }, 500);
+  } else if (upper === "HELP") {
+    handleFirmwareLine("\r\n=== Tactical Gunlight CLI Commands ===");
+    handleFirmwareLine("  STATUS              : Get all telemetry");
+    handleFirmwareLine("  SET PWM1 <0-1000>   : Set Main WLED duty");
+    handleFirmwareLine("  SET PWM2 <0-1000>   : Set Laser duty");
+    handleFirmwareLine("  SET MODE <0-5>      : Set state (0:Off, 1:100%, 2:25%, 3:Dual, 4:Strobe, 5:SOS)");
+    handleFirmwareLine("  SET TIMEOUT <1-120> : Set auto-sleep seconds");
+    handleFirmwareLine("  ISP                 : Jump to factory Bootloader");
+    handleFirmwareLine("  REBOOT              : Soft reset system\r\n");
+  } else {
+    handleFirmwareLine(`[ERR] Unknown command: ${c}. Type HELP.`);
+  }
+}
+
 // 发送指令
 async function sendCommand(cmd, logTx = true) {
-  if (!isConnected || !invoke) {
-    if (logTx) logToTerminal(`[WARN] 未连接串口，指令 [${cmd}] 未发送`, "err-line");
+  if (!isConnected) {
+    if (logTx) logToTerminal(`[WARN] 未连接设备，指令 [${cmd}] 未发送`, "err-line");
     return;
   }
 
-  try {
-    if (logTx) {
-      logToTerminal(`> ${cmd}`, "tx-line");
+  if (logTx) {
+    logToTerminal(`> ${cmd}`, "tx-line");
+  }
+
+  if (isSimulationMode) {
+    setTimeout(() => handleSimCommand(cmd), 50);
+    return;
+  }
+
+  if (invoke) {
+    try {
+      await invoke("send_command", { cmd });
+    } catch (err) {
+      logToTerminal(`[ERR] 发送失败: ${err}`, "err-line");
     }
-    await invoke("send_command", { cmd });
-  } catch (err) {
-    logToTerminal(`[ERR] 发送失败: ${err}`, "err-line");
   }
 }
 
@@ -194,40 +299,36 @@ function handleFirmwareLine(line) {
 
   logToTerminal(cleanLine, "rx-line");
 
-  // 1. 尝试解析 [STATUS] 行:
-  // 例如: [STATUS] State: 1, Vbat: 3850 mV, BatTier: 0, PWM1: 1000/1000, PWM2: 0/1000, Timeout: 10s
   if (cleanLine.includes("[STATUS]")) {
     parseStatusLine(cleanLine);
   } else if (cleanLine.includes("[PWR] Battery Tier Switch")) {
-    // 电池阶梯变更提示，自动查询状态
     sendCommand("STATUS", false);
   }
 }
 
 function parseStatusLine(line) {
   try {
-    // State
+    // 1. 工作状态
     const stateMatch = line.match(/State:\s*(\d+)/i);
     if (stateMatch) {
       const stateId = parseInt(stateMatch[1], 10);
       const stateNames = [
-        "0 (ALL OFF 待机)",
+        "0 (ALL OFF 待机休眠)",
         "1 (MODE 1: 100% 满功率)",
         "2 (MODE 2: 25% 节能)",
         "3 (MODE 3: 主灯+激光双开)",
         "4 (STROBE: 10Hz 爆闪)",
         "5 (SOS: 求救莫尔斯)"
       ];
-      badgeMode.textContent = stateNames[stateId] || `未知模式 (${stateId})`;
+      badgeMode.textContent = stateNames[stateId] || `模式 (${stateId})`;
     }
 
-    // Vbat
+    // 2. 电池电压
     const vbatMatch = line.match(/Vbat:\s*(\d+)\s*mV/i);
     if (vbatMatch) {
       const vbat = parseInt(vbatMatch[1], 10);
       valVbat.innerHTML = `${vbat} <span class="unit">mV</span>`;
 
-      // 锂电池电压百分比估算 (2.95V ~ 4.2V)
       let pct = Math.round(((vbat - 2950) / (4200 - 2950)) * 100);
       pct = Math.max(0, Math.min(100, pct));
       barVbat.style.width = `${pct}%`;
@@ -241,20 +342,20 @@ function parseStatusLine(line) {
       }
     }
 
-    // BatTier
+    // 3. 电池阶梯
     const tierMatch = line.match(/BatTier:\s*(\d+)/i);
     if (tierMatch) {
       const tierId = parseInt(tierMatch[1], 10);
       const tierNames = [
-        "NORMAL (满血输出 >= 3.4V)",
-        "LOW (节能降额 25% 3.1V~3.4V)",
-        "CRITICAL (保命月光 5% 2.95V~3.1V)",
-        "CUTOFF (截止休眠 < 2.95V)"
+        "NORMAL (满血 >=3.4V)",
+        "LOW (节能降额 25% 3.1~3.4V)",
+        "CRITICAL (保命微光 5% 2.95~3.1V)",
+        "CUTOFF (截止休眠 <2.95V)"
       ];
-      valBatTier.textContent = `等级: ${tierNames[tierId] || tierId}`;
+      valBatTier.textContent = `阶梯: ${tierNames[tierId] || tierId}`;
     }
 
-    // PWM1
+    // 4. PWM1 主灯
     const pwm1Match = line.match(/PWM1:\s*(\d+)/i);
     if (pwm1Match) {
       const p1 = parseInt(pwm1Match[1], 10);
@@ -265,7 +366,7 @@ function parseStatusLine(line) {
       textSliderPwm1.textContent = `${p1} ‰`;
     }
 
-    // PWM2
+    // 5. PWM2 瞄准激光
     const pwm2Match = line.match(/PWM2:\s*(\d+)/i);
     if (pwm2Match) {
       const p2 = parseInt(pwm2Match[1], 10);
@@ -276,7 +377,7 @@ function parseStatusLine(line) {
       textSliderPwm2.textContent = `${p2} ‰`;
     }
 
-    // Timeout
+    // 6. 超时时间
     const timeoutMatch = line.match(/Timeout:\s*(\d+)s/i);
     if (timeoutMatch) {
       const sec = parseInt(timeoutMatch[1], 10);
@@ -299,14 +400,14 @@ function onSerialChunk(data) {
   }
 }
 
-// 初始化事件监听
+// 初始化事件绑定
 function setupEvents() {
   btnRefresh.addEventListener("click", refreshPorts);
   btnConnect.addEventListener("click", toggleConnection);
 
   btnQueryStatus.addEventListener("click", () => sendCommand("STATUS"));
 
-  // 模式按钮
+  // 模式切换按钮组
   document.querySelectorAll(".btn-mode").forEach((btn) => {
     btn.addEventListener("click", () => {
       const mode = btn.getAttribute("data-mode");
@@ -346,7 +447,7 @@ function setupEvents() {
 
   // 一键 ISP 刷机
   btnIsp.addEventListener("click", () => {
-    const ok = confirm("确认通过 USB 发送 ISP 指令让枪灯跳转至 Bootloader 刷机模式吗？\r\n\r\n跳转后串口将临时断开，可直接使用 WCHISPTool 或 py-ch32v-isp 烧录新固件！");
+    const ok = confirm("确认发送 ISP 指令让枪灯跳转至 Bootloader 刷机模式吗？\r\n\r\n跳转后串口将断开，直接使用 WCHISPTool 即可刷写新固件！");
     if (ok) {
       sendCommand("ISP");
       logToTerminal("[SYS] 已发送 ISP 指令！设备正在切换至 Bootloader...", "sys-line");
@@ -358,12 +459,12 @@ function setupEvents() {
     sendCommand("REBOOT");
   });
 
-  // CLI 帮助
+  // 帮助
   btnHelp.addEventListener("click", () => {
     sendCommand("HELP");
   });
 
-  // 终端命令行输入
+  // 终端命令行交互
   const doSendCmd = () => {
     const text = termInput.value.trim();
     if (!text) return;
@@ -375,12 +476,12 @@ function setupEvents() {
     if (e.key === "Enter") doSendCmd();
   });
 
-  // 清空终端
+  // 清屏
   btnClearTerm.addEventListener("click", () => {
     termScreen.innerHTML = "";
   });
 
-  // 注册 Tauri 后端事件
+  // Tauri 事件监听
   if (event) {
     event.listen("serial-rx", (e) => {
       if (e.payload && e.payload.data) {
@@ -395,7 +496,7 @@ function setupEvents() {
   }
 }
 
-// 页面加载完成后自动初始化
+// 页面自启动
 window.addEventListener("DOMContentLoaded", () => {
   setupEvents();
   refreshPorts();
