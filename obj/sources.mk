@@ -32,3 +32,5 @@ Debug \
 Peripheral/src \
 Startup \
 User \
+User/USBLIB/CONFIG \
+User/USBLIB/USB-Driver/src \

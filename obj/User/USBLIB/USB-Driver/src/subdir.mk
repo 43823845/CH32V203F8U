@@ -5,40 +5,40 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../User/bsp.c \
-../User/ch32v20x_it.c \
-../User/gunlight.c \
-../User/main.c \
-../User/system_ch32v20x.c \
-../User/usb_cdc.c 
+../User/USBLIB/USB-Driver/src/usb_core.c \
+../User/USBLIB/USB-Driver/src/usb_init.c \
+../User/USBLIB/USB-Driver/src/usb_int.c \
+../User/USBLIB/USB-Driver/src/usb_mem.c \
+../User/USBLIB/USB-Driver/src/usb_regs.c \
+../User/USBLIB/USB-Driver/src/usb_sil.c 
 
 C_DEPS += \
-./User/bsp.d \
-./User/ch32v20x_it.d \
-./User/gunlight.d \
-./User/main.d \
-./User/system_ch32v20x.d \
-./User/usb_cdc.d 
+./User/USBLIB/USB-Driver/src/usb_core.d \
+./User/USBLIB/USB-Driver/src/usb_init.d \
+./User/USBLIB/USB-Driver/src/usb_int.d \
+./User/USBLIB/USB-Driver/src/usb_mem.d \
+./User/USBLIB/USB-Driver/src/usb_regs.d \
+./User/USBLIB/USB-Driver/src/usb_sil.d 
 
 OBJS += \
-./User/bsp.o \
-./User/ch32v20x_it.o \
-./User/gunlight.o \
-./User/main.o \
-./User/system_ch32v20x.o \
-./User/usb_cdc.o 
+./User/USBLIB/USB-Driver/src/usb_core.o \
+./User/USBLIB/USB-Driver/src/usb_init.o \
+./User/USBLIB/USB-Driver/src/usb_int.o \
+./User/USBLIB/USB-Driver/src/usb_mem.o \
+./User/USBLIB/USB-Driver/src/usb_regs.o \
+./User/USBLIB/USB-Driver/src/usb_sil.o 
 
 DIR_OBJS += \
-./User/*.o \
+./User/USBLIB/USB-Driver/src/*.o \
 
 DIR_DEPS += \
-./User/*.d \
+./User/USBLIB/USB-Driver/src/*.d \
 
 DIR_EXPANDS += \
-./User/*.234r.expand \
+./User/USBLIB/USB-Driver/src/*.234r.expand \
 
 
 # Each subdirectory must supply rules for building sources it contributes
-User/%.o: ../User/%.c
+User/USBLIB/USB-Driver/src/%.o: ../User/USBLIB/USB-Driver/src/%.c
 	@	riscv-none-embed-gcc -march=rv32imacxw -mabi=ilp32 -msmall-data-limit=8 -msave-restore -fmax-errors=20 -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -Wunused -Wuninitialized -g -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/Debug" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/Core" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/User" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/Peripheral/inc" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/User/USBLIB/CONFIG" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/User/USBLIB/USB-Driver/inc" -std=gnu99 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -c -o "$@" "$<"
 

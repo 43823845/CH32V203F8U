@@ -25,5 +25,5 @@ DIR_EXPANDS += \
 
 # Each subdirectory must supply rules for building sources it contributes
 Debug/%.o: ../Debug/%.c
-	@	riscv-none-embed-gcc -march=rv32imacxw -mabi=ilp32 -msmall-data-limit=8 -msave-restore -fmax-errors=20 -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -Wunused -Wuninitialized -g -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/Debug" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/Core" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/User" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/Peripheral/inc" -std=gnu99 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -c -o "$@" "$<"
+	@	riscv-none-embed-gcc -march=rv32imacxw -mabi=ilp32 -msmall-data-limit=8 -msave-restore -fmax-errors=20 -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -Wunused -Wuninitialized -g -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/Debug" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/Core" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/User" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/Peripheral/inc" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/User/USBLIB/CONFIG" -I"c:/Users/Origin/mounriver-studio-projects/CH32V203F8U/User/USBLIB/USB-Driver/inc" -std=gnu99 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -c -o "$@" "$<"
 
